@@ -1,7 +1,7 @@
 {
   "name": "hafiz-server",
   "version": "1.0.0",
-  "description": "خادم تطبيق حافظ — Express + SQLite للمزامنة الأوفلاين",
+  "description": "خادم تطبيق حافظ — Express + Supabase Postgres للمزامنة الأوفلاين",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -13,9 +13,9 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "pg": "^8.22.0",
     "uuid": "^11.0.5"
   }
 }

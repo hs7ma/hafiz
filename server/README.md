@@ -1,33 +1,24 @@
-# خادم حافظ (Node.js + SQLite)
+# خادم حافظ (Node.js + Supabase Postgres)
 
-API محلي لتجربة التطبيق الحقيقي ومزامنة البيانات من الأجهزة الأوفلاين.
+API للمزامنة الأوفلاين: Express على Railway، وقاعدة البيانات على **Supabase Postgres**.
 
 ## المتطلبات
 
 - Node.js 18 أو أحدث
-- أدوات بناء أصلية لـ `better-sqlite3` (على Windows غالبًا كافية مع Node الرسمي)
+- مشروع Supabase مع جداول التطبيق (يُنشئها الخادم تلقائيًا عند التشغيل إن لزم)
 
-## التشغيل
+## التشغيل المحلي
 
 ```bash
 cd server
+cp .env.example .env
+# املأ DATABASE_URL من Supabase (يفضّل Connection pooling / Transaction)
 npm install
 npm start
 ```
 
-الخادم يستمع على المنفذ `3000` افتراضيًا (أو `PORT` من البيئة).
-
-بعد التشغيل ستظهر عناوين:
-
-- `http://127.0.0.1:3000` — من نفس الجهاز
-- `http://10.0.2.2:3000` — من محاكي Android إلى جهاز المضيف
-- `http://192.168.x.x:3000` — من الهاتف على نفس شبكة Wi‑Fi
-
-تحقق سريع:
-
-```bash
-curl http://127.0.0.1:3000/health
-```
+الصحة: `curl http://127.0.0.1:3000/health`  
+المتوقع: `"engine":"postgres"`
 
 ### إعادة زرع بيانات التجربة
 
@@ -35,7 +26,7 @@ curl http://127.0.0.1:3000/health
 npm run seed
 ```
 
-## حسابات التجربة (تُزرع تلقائيًا عند أول تشغيل)
+## حسابات التجربة
 
 | الدور | الدخول |
 |--------|---------|
@@ -43,92 +34,41 @@ npm run seed
 | مدرّس | الشيخ إبراهيم / `IB482917` |
 | طالب | `ahmad_yusuf` / `A7K3M` |
 
-## ربط التطبيق (Flutter)
+## متغيرات البيئة
 
-محاكي Android (الافتراضي في التطبيق):
+| المتغير | الوصف |
+|---------|--------|
+| `DATABASE_URL` | رابط Postgres (Pooler مفضّل على الشبكات بدون IPv6) |
+| `SUPABASE_DB_PASSWORD` | بديل إن لم تضبط `DATABASE_URL` |
+| `SUPABASE_PROJECT_REF` | معرّف المشروع (افتراضي من إعدادكم) |
+| `SUPABASE_REGION` | منطقة الـ pooler مثل `ap-southeast-2` |
+| `PORT` | على Railway تلقائي |
 
-```bash
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+مثال Pooler (Transaction / منفذ 6543):
+
+```
+postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:6543/postgres
 ```
 
-هاتف حقيقي على نفس الشبكة — استبدل IP بعنوان جهازك كما يظهر عند تشغيل الخادم:
-
-```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
-```
-
-بناء APK:
-
-```bash
-flutter build apk --release --dart-define=API_BASE_URL=http://192.168.1.10:3000
-```
-
-الملف: `build/app/outputs/flutter-apk/app-release.apk`
+> لا ترفع ملف `.env` إلى Git. ضعه في Railway Variables فقط.
 
 ## النشر على Railway
 
-جذر المستودع هنا هو مشروع Flutter، والخادم موجود داخل مجلد `server/`.
-لذلك عند النشر على Railway يجب ضبط **Root Directory** للخدمة على `server`.
+1. **Root Directory** = `server`
+2. أزل الاعتماد على Volume/SQLite إن وُجد (`DATA_DIR` لم يعد مطلوبًا)
+3. أضف المتغير:
 
-### 1) إعداد الخدمة
-
-- في إعدادات الخدمة على Railway اضبط **Root Directory = `server`**.
-- سيكتشف Railway مشروع Node تلقائيًا ويبني عبر **Nixpacks**
-  (موجود أيضًا صراحةً في `server/railway.json`).
-- أمر التشغيل: `npm start` (معرّف في `railway.json` وفي `package.json`).
-- المنفذ `PORT` تضبطه Railway تلقائيًا — **لا تحدده يدويًا** ولا تكتبه في الكود.
-
-### 2) قاعدة البيانات الدائمة (مهم جدًا)
-
-نظام ملفات حاويات Railway **مؤقّت (ephemeral)**؛ أي ملف SQLite محلي **سيُمحى**
-مع كل إعادة نشر أو إعادة تشغيل ما لم يُخزَّن على **Volume** دائم.
-
-- أنشئ **Volume** وثبّته على المسار `/data`.
-- أضف متغيّر البيئة: `DATA_DIR=/data`.
-
-عندها يقرأ الخادم مجلد التخزين من `DATA_DIR` (انظر `src/db.js`) وتبقى
-قاعدة `hafiz.sqlite` محفوظة بين عمليات النشر. راجع `.env.example` للمتغيرات.
-
-### 3) طرق النشر
-
-طريقتان (لا تنفّذ أوامر النشر إن كنت تُجهّز فقط):
-
-- **(أ) ربط مستودع GitHub:** ادفع المشروع إلى GitHub ثم من Railway اختر
-  *New Project → Deploy from GitHub repo*، واضبط Root Directory على `server`.
-  كل دفعة (push) تُطلق نشرًا جديدًا تلقائيًا.
-- **(ب) عبر Railway CLI:** من داخل مجلد `server`:
-
-```bash
-railway up
+```
+DATABASE_URL=postgresql://postgres.<REF>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:6543/postgres
 ```
 
-### 4) التحقق بعد النشر
+4. انشر، ثم افتح: `https://<app>.up.railway.app/health`
 
-- افتح الرابط العام: `https://<your-app>.up.railway.app/health` ويجب أن يعيد
-  `{"ok":true,...}`.
-- عنوان الـ API هو نفس الرابط الأساسي **بدون** لاحقة `/api`
-  (تطبيق Flutter يضيف `/api` تلقائيًا في `lib/data/remote/api_client.dart`).
-
-### 5) ربط تطبيق Flutter بالخادم على Railway
-
-أعد بناء التطبيق مع تمرير عنوان الخادم (بدون `/api` وبدون شرطة مائلة في النهاية):
+## ربط Flutter
 
 ```bash
 flutter build apk --release --dart-define=API_BASE_URL=https://<your-app>.up.railway.app
 ```
-
-مثال تشغيل مباشر:
-
-```bash
-flutter run --dart-define=API_BASE_URL=https://<your-app>.up.railway.app
-```
-
-## التخزين
-
-- قاعدة SQLite: `server/data/hafiz.sqlite` محليًا، أو داخل `DATA_DIR` إن ضُبط
-  (على Railway: `/data` عبر Volume دائم).
-- كلمات مرور المسؤول مُجزّأة بـ bcrypt
-- احذف الملف أو شغّل `npm run seed` لإعادة البداية
 
 ## أهم المسارات
 
@@ -143,11 +83,5 @@ flutter run --dart-define=API_BASE_URL=https://<your-app>.up.railway.app
 | POST | `/api/sessions/start` | بدء محاضرة اليوم |
 | PUT | `/api/attendance/:id` | تحديث حضور/حفظ/سلوك |
 | PUT | `/api/homework/:studentId` | تعيين واجب |
-| POST | `/api/sync/push` | دفع طابور المزامنة من الجهاز |
+| POST | `/api/sync/push` | دفع طابور المزامنة |
 | GET | `/api/sync/pull?mosque_id=` | سحب لقطة المسجد |
-
-عمليات المزامنة تدعم UUID من العميل (idempotent قدر الإمكان).
-
-## ملاحظات أمنية
-
-هذا الخادم مخصّص للتجربة على شبكة محلية. لا تعرضه على الإنترنت العام بدون مصادقة أقوى وHTTPS.
