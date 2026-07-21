@@ -293,10 +293,10 @@ router.post('/students', async (req, res) => {
         .get(teacherId, mosqueId);
       if (!teacher) throw httpError(404, 'المدرّس غير موجود في هذا المسجد');
 
-      const taken = await db
-.prepare('SELECT login_username FROM students WHERE mosque_id = ?')
-        .all(mosqueId)
-        .map((s) => s.login_username);
+      const takenRows = await db
+        .prepare('SELECT login_username FROM students WHERE mosque_id = ?')
+        .all(mosqueId);
+      const taken = takenRows.map((s) => s.login_username);
 
       const row = {
         id: uuidv4(),
