@@ -5,9 +5,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/router.dart';
 import 'core/constants/api_config.dart';
+import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'data/local/local_store.dart';
 import 'data/remote/api_client.dart';
@@ -22,9 +24,17 @@ Future<void> main() async {
   }
   await initializeDateFormatting('ar');
 
+  if (SupabaseConfig.isConfigured) {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.anonKey,
+    );
+  }
+
   final store = LocalStore();
   final api = ApiClient();
-  // مع الخادم: لا نزرع بيانات محلية وهمية تتعارض مع Supabase.
+  await api.loadPersistedToken();
+  // مع الخادم (Supabase أو Railway): لا نزرع بيانات محلية وهمية.
   final repo = DemoHafizRepository(
     store: store,
     api: api,

@@ -1,54 +1,41 @@
 # حافظ
 
 تطبيق Flutter لتنظيم حضور وحفظ طلبة دورات تحفيظ القرآن في المساجد.
-يعمل **أوفلاين أولًا**: يحفظ على الجهاز ثم يزامن مع خادم Node.js + SQLite عند توفر الشبكة.
+يعمل **أوفلاين أولًا**: يحفظ على الجهاز ثم يزامن مع **Supabase** (Edge Functions + Postgres).
 
 ## التشغيل السريع
 
 ```bash
-cd hafiz
 flutter pub get
-flutter run
+flutter run ^
+  --dart-define=SUPABASE_URL=https://YOUR_REF.supabase.co ^
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY ^
+  --dart-define=API_BASE_URL=
 ```
 
-الافتراضي يتصل بمحاكي Android عبر `http://10.0.2.2:3000`.  
-للتعطيل الكامل للمزامنة: `--dart-define=API_BASE_URL=`
+التفاصيل الكاملة للهجرة والنشر: [`supabase/README.md`](supabase/README.md)
 
-## خادم Node.js (SQLite)
+## خلفية Express/Railway (قديم — قيد الإيقاف)
 
-```bash
-cd server
-npm install
-npm start
-```
+المجلد `server/` كان يخدم نفس قاعدة Supabase Postgres عبر Express على Railway.
+بعد اكتمال الهجرة يُستبدل بـ Edge Functions. راجع ملاحظات الإيقاف في `server/README.md`.
 
-- قاعدة البيانات: `server/data/hafiz.sqlite`
-- كلمات المرور: bcrypt
-- راجع `server/README.md`
-
-### ربط الهاتف الحقيقي
-
-عند تشغيل الخادم سيظهر IP الشبكة. مثال:
+## بناء APK
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
-```
-
-### بناء APK
-
-```bash
-flutter build apk --release --dart-define=API_BASE_URL=http://192.168.1.10:3000
+flutter build apk --release ^
+  --dart-define=SUPABASE_URL=https://YOUR_REF.supabase.co ^
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY ^
+  --dart-define=API_BASE_URL=
 ```
 
 الملف: `build/app/outputs/flutter-apk/app-release.apk`
-
-نسخة جاهزة لتيليجرام: `releases/hafiz-release.apk`
 
 ## سلوك المزامنة الأوفلاين
 
 1. كل عملية تُحفظ فورًا محليًا (SharedPreferences)
 2. تُضاف إلى طابور مزامنة
-3. عند الاتصال: `POST /api/sync/push` ثم سحب لقطة المسجد
+3. عند الاتصال: `POST .../hafiz-api/sync/push` ثم سحب لقطة المسجد
 4. `connectivity_plus` يعيد المحاولة عند عودة الشبكة
 
 ## حسابات التجربة
@@ -63,6 +50,6 @@ flutter build apk --release --dart-define=API_BASE_URL=http://192.168.1.10:3000
 
 ```
 lib/          تطبيق Flutter (أوفلاين + مزامنة)
-server/       Express + better-sqlite3
-supabase/     مخطط مرجعي قديم (غير مستخدم كخلفية تشغيل)
+supabase/     Migrations + Edge Functions (المسار المعتمد)
+server/       Express القديم (احتياطي أثناء الانتقال)
 ```

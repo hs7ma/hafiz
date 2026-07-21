@@ -18,12 +18,16 @@ dependencies:
   google_fonts: ^6.3.2
   intl: ^0.20.2
   just_audio: ^0.10.6
+  # تشغيل الصوت على Windows (just_audio وحده لا يدعمه)
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_windows_audio: any
   uuid: ^4.6.0
   shared_preferences: ^2.5.3
   http: ^1.4.0
   connectivity_plus: ^6.1.4
   path_provider: ^2.1.5
   url_launcher: ^6.3.2
+  supabase_flutter: ^2.9.1
 
 dev_dependencies:
   flutter_test:
