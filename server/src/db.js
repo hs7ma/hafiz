@@ -271,6 +271,26 @@ async function migrate() {
     END $$;
     ALTER TABLE public.mosque_admins
       ADD COLUMN IF NOT EXISTS password_hash text;
+    ALTER TABLE public.mosques
+      ADD COLUMN IF NOT EXISTS whatsapp_phone text;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.mosque_registration_requests (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      mosque_name text NOT NULL,
+      email text NOT NULL,
+      whatsapp_phone text NOT NULL,
+      status text NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+      mosque_id uuid REFERENCES public.mosques(id) ON DELETE SET NULL,
+      reviewed_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS mosque_registration_requests_status_idx
+      ON public.mosque_registration_requests (status);
+    CREATE INDEX IF NOT EXISTS mosque_registration_requests_email_idx
+      ON public.mosque_registration_requests (email);
   `);
 }
 

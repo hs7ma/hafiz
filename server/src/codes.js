@@ -42,10 +42,34 @@ function looksLikeEmail(email) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
 }
 
+/** كلمة مرور لمسؤول الجامع بعد الموافقة (10 أحرف). */
+function mosqueAdminPassword() {
+  return Array.from({ length: 10 }, () => ALPHABET[randomInt(0, ALPHABET.length)]).join('');
+}
+
+/** أرقام فقط لرابط واتساب (wa.me). */
+function normalizeWhatsappDigits(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('0') && digits.length >= 9) {
+    digits = `966${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+function looksLikeWhatsappPhone(phone) {
+  const digits = normalizeWhatsappDigits(phone);
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 module.exports = {
   englishPrefix,
   teacherCode,
   studentCode,
   studentUsername,
   looksLikeEmail,
+  mosqueAdminPassword,
+  normalizeWhatsappDigits,
+  looksLikeWhatsappPhone,
 };

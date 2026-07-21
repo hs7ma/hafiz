@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>طلب تسجيل جامع — حافظ</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="brand">
+      <h1>حافظ</h1>
+      <p>
+        أرسل طلب تسجيل جامعك. سنراجع البيانات ثم نرسل لك كلمة المرور عبر واتساب
+        بعد الموافقة.
+      </p>
+    </header>
+
+    <section class="card">
+      <form id="form" class="grid">
+        <label>
+          اسم الجامع
+          <input name="mosque_name" required maxlength="120" placeholder="مثال: مسجد النور" autocomplete="organization" />
+        </label>
+        <label>
+          البريد الإلكتروني
+          <input name="email" type="email" required maxlength="160" placeholder="admin@example.com" autocomplete="email" dir="ltr" />
+        </label>
+        <label>
+          رقم واتساب
+          <input name="whatsapp_phone" required maxlength="20" placeholder="05xxxxxxxx أو 9665xxxxxxxx" inputmode="tel" dir="ltr" />
+        </label>
+        <p class="muted">
+          بعد الإرسال يبقى الطلب قيد المراجعة. لا يمكن الدخول للتطبيق قبل موافقة إدارة حافظ.
+        </p>
+        <div class="actions">
+          <button class="btn-primary" type="submit" id="submitBtn">إرسال الطلب</button>
+        </div>
+        <div id="msg" class="msg hidden" role="status"></div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const msg = document.getElementById('msg');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'msg hidden';
+      submitBtn.disabled = true;
+      const data = Object.fromEntries(new FormData(form).entries());
+      try {
+        const res = await fetch('/api/registration-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'تعذّر إرسال الطلب');
+        form.reset();
+        show(json.message || 'تم إرسال الطلب بنجاح. انتظر الموافقة.', true);
+      } catch (err) {
+        show(err.message || 'حدث خطأ', false);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

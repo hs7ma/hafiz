@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
@@ -105,7 +106,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 const SizedBox(height: 12),
                 _RoleTile(
                   title: 'إدارة الجامع',
-                  subtitle: 'تسجيل المسجد ومتابعة المستويات والمدرّسين',
+                  subtitle: 'الدخول بعد موافقة حافظ — اسم المسجد والبريد وكلمة المرور',
                   icon: Icons.account_balance_outlined,
                   onTap: () => setState(() => _role = _AuthRole.admin),
                 ),
@@ -269,18 +270,17 @@ class _AdminAuthForm extends ConsumerStatefulWidget {
 class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
   final _formKey = GlobalKey<FormState>();
   final _mosqueCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _register = false;
   bool _obscure = true;
   bool _submitting = false;
   String? _error;
 
+  static String get _registerUrl => '${ApiConfig.normalizedBase}/register';
+
   @override
   void dispose() {
     _mosqueCtrl.dispose();
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -290,19 +290,11 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
-    final auth = ref.read(authControllerProvider.notifier);
-    final err = _register
-        ? await auth.registerMosque(
-            mosqueName: _mosqueCtrl.text,
-            adminName: _nameCtrl.text,
-            email: _emailCtrl.text,
-            password: _passwordCtrl.text,
-          )
-        : await auth.loginMosqueAdmin(
-            mosqueName: _mosqueCtrl.text,
-            email: _emailCtrl.text,
-            password: _passwordCtrl.text,
-          );
+    final err = await ref.read(authControllerProvider.notifier).loginMosqueAdmin(
+          mosqueName: _mosqueCtrl.text,
+          email: _emailCtrl.text,
+          password: _passwordCtrl.text,
+        );
     if (!mounted) return;
     setState(() => _submitting = false);
     if (err != null) {
@@ -310,6 +302,19 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
       return;
     }
     context.go('/admin');
+  }
+
+  Future<void> _openRegisterPage() async {
+    if (!ApiConfig.isConfigured) {
+      setState(() => _error = 'الخادم غير مضبوط — لا يمكن فتح صفحة التسجيل');
+      return;
+    }
+    final uri = Uri.parse(_registerUrl);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => _error = 'تعذّر فتح صفحة التسجيل');
+    }
   }
 
   @override
@@ -322,16 +327,14 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _register ? 'إنشاء مسجد جديد' : 'دخول إدارة الجامع',
+                'دخول إدارة الجامع',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 6),
               Text(
-                _register
-                    ? 'أنشئ حسابًا باسم المسجد والبريد وكلمة المرور.'
-                    : 'أدخل اسم المسجد والبريد وكلمة المرور.',
+                'أدخل اسم المسجد والبريد وكلمة المرور التي استلمتها بعد موافقة حافظ.',
                 style: TextStyle(
                   color: AppColors.ink.withValues(alpha: 0.65),
                 ),
@@ -347,18 +350,6 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
               ),
-              if (_register) ...[
-                const SizedBox(height: 14),
-                AuthTextField(
-                  controller: _nameCtrl,
-                  label: 'اسم المسؤول',
-                  textInputAction: TextInputAction.next,
-                  textCapitalization: TextCapitalization.words,
-                  autofillHints: const [AutofillHints.name],
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                ),
-              ],
               const SizedBox(height: 14),
               AuthTextField(
                 controller: _emailCtrl,
@@ -379,11 +370,7 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
                 obscureText: _obscure,
                 onToggleObscure: () => setState(() => _obscure = !_obscure),
                 textInputAction: TextInputAction.done,
-                autofillHints: [
-                  _register
-                      ? AutofillHints.newPassword
-                      : AutofillHints.password,
-                ],
+                autofillHints: const [AutofillHints.password],
                 onEditingComplete: _submitting ? null : _submit,
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'مطلوب';
@@ -403,23 +390,12 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
                 height: 52,
                 child: FilledButton(
                   onPressed: _submitting ? null : _submit,
-                  child: Text(
-                    _register ? 'إنشاء مسجد' : 'دخول الإدارة',
-                  ),
+                  child: const Text('دخول الإدارة'),
                 ),
               ),
               TextButton(
-                onPressed: _submitting
-                    ? null
-                    : () => setState(() {
-                          _register = !_register;
-                          _error = null;
-                        }),
-                child: Text(
-                  _register
-                      ? 'لديك حساب؟ سجّل الدخول'
-                      : 'مسجد جديد؟ أنشئ حساب إدارة',
-                ),
+                onPressed: _submitting ? null : _openRegisterPage,
+                child: const Text('مسجد جديد؟ أرسل طلب تسجيل'),
               ),
             ],
           ),

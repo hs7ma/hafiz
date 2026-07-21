@@ -11,7 +11,6 @@ const {
   teacherCode,
   studentCode,
   studentUsername,
-  looksLikeEmail,
 } = require('../codes');
 
 const router = express.Router();
@@ -33,64 +32,12 @@ function httpError(status, message) {
   return err;
 }
 
-router.post('/auth/register', async (req, res) => {
-  const mosqueName = String(req.body.mosque_name || '').trim();
-  const adminName = String(req.body.admin_name || '').trim();
-  const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '');
-
-  if (!mosqueName) return res.status(400).json({ error: 'أدخل اسم المسجد' });
-  if (!adminName) return res.status(400).json({ error: 'أدخل اسم المسؤول' });
-  if (!looksLikeEmail(email)) return res.status(400).json({ error: 'البريد غير صالح' });
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'كلمة المرور 6 أحرف على الأقل' });
-  }
-
-  try {
-    const result = await db.transaction(async () => {
-      const existsMosque = await db
-.prepare('SELECT id FROM mosques WHERE name = ?')
-        .get(mosqueName);
-      if (existsMosque) throw httpError(409, 'يوجد مسجد بهذا الاسم مسبقًا');
-
-      const existsEmail = await db
-.prepare('SELECT id FROM mosque_admins WHERE email = ?')
-        .get(email);
-      if (existsEmail) throw httpError(409, 'البريد مستخدم مسبقًا');
-
-      const mosque = {
-        id: uuidv4(),
-        name: mosqueName,
-        created_at: nowIso(),
-      };
-      const admin = {
-        id: uuidv4(),
-        mosque_id: mosque.id,
-        full_name: adminName,
-        email,
-        password_hash: hashPassword(password),
-        created_at: nowIso(),
-      };
-
-      await db.prepare(
-        'INSERT INTO mosques (id, name, created_at) VALUES (@id, @name, @created_at)',
-      ).run(mosque);
-      await db.prepare(`
-        INSERT INTO mosque_admins
-          (id, mosque_id, full_name, email, password_hash, created_at)
-        VALUES (@id, @mosque_id, @full_name, @email, @password_hash, @created_at)
-      `).run(admin);
-
-      return { mosque, admin };
-    });
-
-    return res.status(201).json({
-      user: publicAdmin(result.admin, result.mosque),
-      mosque: result.mosque,
-    });
-  } catch (e) {
-    return res.status(e.status || 500).json({ error: e.message || 'خطأ في التسجيل' });
-  }
+router.post('/auth/register', async (_req, res) => {
+  return res.status(403).json({
+    error:
+      'التسجيل المباشر مغلق. أرسل طلبًا عبر صفحة التسجيل وانتظر موافقة إدارة حافظ.',
+    register_url: '/register',
+  });
 });
 
 router.post('/auth/login', async (req, res) => {
