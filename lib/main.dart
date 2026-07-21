@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
 import 'app/router.dart';
 import 'core/constants/api_config.dart';
@@ -13,11 +16,20 @@ import 'data/sync/sync_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // صوت التلاوة على Windows عبر media_kit (Android/iOS تستخدم just_audio الأصلي).
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    JustAudioMediaKit.ensureInitialized(windows: true, linux: false);
+  }
   await initializeDateFormatting('ar');
 
   final store = LocalStore();
   final api = ApiClient();
-  final repo = DemoHafizRepository(store: store, api: api);
+  // مع الخادم: لا نزرع بيانات محلية وهمية تتعارض مع Supabase.
+  final repo = DemoHafizRepository(
+    store: store,
+    api: api,
+    seedDemoData: !ApiConfig.isConfigured,
+  );
   await repo.restore();
 
   final container = ProviderContainer(

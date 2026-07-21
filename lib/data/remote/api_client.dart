@@ -84,6 +84,90 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> registerMosque({
+    required String mosqueName,
+    required String adminName,
+    required String email,
+    required String password,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/register',
+      body: {
+        'mosque_name': mosqueName,
+        'admin_name': adminName,
+        'email': email,
+        'password': password,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> loginMosqueAdmin({
+    required String mosqueName,
+    required String email,
+    required String password,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/login',
+      body: {
+        'mosque_name': mosqueName,
+        'email': email,
+        'password': password,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> loginTeacher({
+    required String fullName,
+    required String loginCode,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/teacher-login',
+      body: {
+        'full_name': fullName,
+        'login_code': loginCode,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> loginStudent({
+    required String username,
+    required String loginCode,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/student-login',
+      body: {
+        'username': username,
+        'login_code': loginCode,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> createStudent({
+    required String mosqueId,
+    required String teacherId,
+    required String fullName,
+    required String gradeLevel,
+    required int age,
+    required String parentPhone,
+  }) {
+    return _json(
+      'POST',
+      '/api/students',
+      body: {
+        'mosque_id': mosqueId,
+        'teacher_id': teacherId,
+        'full_name': fullName,
+        'grade_level': gradeLevel,
+        'age': age,
+        'parent_phone': parentPhone,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> pushOps(List<SyncOp> ops) {
     return _json(
       'POST',

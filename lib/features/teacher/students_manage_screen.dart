@@ -284,11 +284,11 @@ class StudentsManageScreen extends ConsumerWidget {
                   SizedBox(
                     height: 52,
                     child: FilledButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (!formKey.currentState!.validate()) return;
                         final age = int.parse(ageCtrl.text);
                         if (student == null) {
-                          final result = ref
+                          final result = await ref
                               .read(studentsControllerProvider.notifier)
                               .add(
                                 fullName: nameCtrl.text,
@@ -296,6 +296,7 @@ class StudentsManageScreen extends ConsumerWidget {
                                 age: age,
                                 parentPhone: phoneCtrl.text,
                               );
+                          if (!context.mounted) return;
                           if (result.error != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(result.error!)),

@@ -37,17 +37,9 @@ class _SplashScreenState extends State<SplashScreen> {
               curve: Curves.easeOutBack,
               builder: (context, value, child) =>
                   Transform.scale(scale: value, child: child),
-              child: const HafizLogo(height: 96),
+              child: const HafizLogo(height: 180),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'حافظ',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.oliveDark,
-                  ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'حضورٌ منظم… وحفظٌ متتابع',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -82,22 +74,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
             children: [
-              const FadeSlideIn(child: HafizLogo(height: 72)),
-              const SizedBox(height: 16),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 80),
-                child: Text(
-                  'حافظ',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.oliveDark,
-                      ),
-                ),
+              const FadeSlideIn(
+                child: Center(child: HafizLogo(height: 170)),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 140),
+                delay: const Duration(milliseconds: 100),
                 child: Text(
                   'إدارة حلقات التحفيظ في المسجد',
                   textAlign: TextAlign.center,
@@ -310,13 +292,13 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
     setState(() => _submitting = true);
     final auth = ref.read(authControllerProvider.notifier);
     final err = _register
-        ? auth.registerMosque(
+        ? await auth.registerMosque(
             mosqueName: _mosqueCtrl.text,
             adminName: _nameCtrl.text,
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
           )
-        : auth.loginMosqueAdmin(
+        : await auth.loginMosqueAdmin(
             mosqueName: _mosqueCtrl.text,
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
@@ -472,7 +454,7 @@ class _TeacherAuthFormState extends ConsumerState<_TeacherAuthForm> {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
-    final err = ref.read(authControllerProvider.notifier).loginTeacher(
+    final err = await ref.read(authControllerProvider.notifier).loginTeacher(
           fullName: _nameCtrl.text,
           code: _codeCtrl.text,
         );
@@ -572,7 +554,7 @@ class _StudentAuthFormState extends ConsumerState<_StudentAuthForm> {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
-    final err = ref.read(authControllerProvider.notifier).loginStudent(
+    final err = await ref.read(authControllerProvider.notifier).loginStudent(
           username: _userCtrl.text,
           code: _codeCtrl.text,
         );
