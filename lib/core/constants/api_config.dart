@@ -1,21 +1,18 @@
 import 'supabase_config.dart';
 
-/// عنوان خادم Node (Railway) — احتياطي أثناء الانتقال إلى Supabase.
+/// عنوان خادم Express/Railway — اختياري كاحتياطي فقط.
 ///
-/// المفضّل: ضبط [SupabaseConfig] عبر:
-///   --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-///
-/// تجاوز Railway محليًا:
-///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
-/// تعطيل المزامنة بالكامل:
-///   flutter run --dart-define=API_BASE_URL= --dart-define=SUPABASE_URL=
+/// المسار المعتمد: [SupabaseConfig] (Edge Functions).
+/// تفعيل Railway يدويًا:
+///   flutter run --dart-define=API_BASE_URL=https://hafiz.up.railway.app
+///   مع تعطيل Supabase: --dart-define=SUPABASE_URL= --dart-define=SUPABASE_ANON_KEY=
 class ApiConfig {
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://hafiz.up.railway.app',
+    defaultValue: '',
   );
 
-  /// مفعّل إن وُجد Supabase أو Railway.
+  /// مفعّل إن وُجد Supabase (المفضّل) أو Railway.
   static bool get isConfigured =>
       SupabaseConfig.isConfigured || baseUrl.trim().isNotEmpty;
 

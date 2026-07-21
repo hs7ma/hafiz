@@ -8,7 +8,6 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/router.dart';
-import 'core/constants/api_config.dart';
 import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'data/local/local_store.dart';
@@ -34,11 +33,12 @@ Future<void> main() async {
   final store = LocalStore();
   final api = ApiClient();
   await api.loadPersistedToken();
-  // مع الخادم (Supabase أو Railway): لا نزرع بيانات محلية وهمية.
+  // مع الخادم (Supabase افتراضيًا): لا نزرع بيانات محلية وهمية.
+  final backendReady = api.isConfigured;
   final repo = DemoHafizRepository(
     store: store,
     api: api,
-    seedDemoData: !ApiConfig.isConfigured,
+    seedDemoData: !backendReady,
   );
   await repo.restore();
 
@@ -50,8 +50,7 @@ Future<void> main() async {
     ],
   );
   await container.read(quranReadyProvider.future);
-  // تفعيل مستمع المزامنة إن وُجد API
-  if (ApiConfig.isConfigured) {
+  if (backendReady) {
     container.read(syncControllerProvider);
   }
 

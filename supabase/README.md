@@ -41,20 +41,17 @@ npx supabase functions deploy serve-platform --no-verify-jwt
 
 ## عناوين الصفحات بعد النشر
 
-- تسجيل جامع: `https://<ref>.supabase.co/functions/v1/serve-register`
-- إدارة المنصة: `https://<ref>.supabase.co/functions/v1/serve-platform`
-- API: `https://<ref>.supabase.co/functions/v1/hafiz-api/...`
+- تسجيل جامع: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-register
+- إدارة المنصة: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-platform
+- API: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/hafiz-api/
 
 ## Flutter
 
 ```bash
-flutter run ^
-  --dart-define=SUPABASE_URL=https://<ref>.supabase.co ^
-  --dart-define=SUPABASE_ANON_KEY=<anon-or-publishable-key> ^
-  --dart-define=API_BASE_URL=
+flutter run
 ```
 
-`API_BASE_URL=` يعطّل احتياطي Railway. التطبيق يستدعي Edge Function `hafiz-api` بمفتاح anon فقط ويخزّن `hafiz_token` بعد الدخول.
+الافتراضي في التطبيق يتصل بمشروع hafiz عبر مفتاح anon. لتجاوز الإعدادات استخدم `--dart-define`.
 
 ## أمان
 
@@ -65,16 +62,7 @@ flutter run ^
 
 ## إيقاف Railway
 
-بعد التحقق من Edge + Flutter:
+Edge Functions منشورة ومُختبرة. العملاء يستخدمون Supabase افتراضيًا.
 
-1. انقل DNS/الروابط من `hafiz.up.railway.app` إلى دوال Supabase.
-2. أوقف خدمة Railway.
-3. أبقِ `server/` مؤقتًا كمرجع ثم احذفه لاحقًا.
-
-## متبقٍ / TODO
-
-- [ ] تطبيق الهجرة على المشروع السحابي (يتطلب MCP auth أو `supabase link`)
-- [ ] نشر الدوال وضبط `PLATFORM_ADMIN_PASSWORD`
-- [ ] ربط حسابات `mosque_admins` الحالية بـ Auth (يتم تلقائيًا عند أول دخول ناجح)
-- [ ] تضييق أكثر لجلسات المدرّس/الطالب (مدة أقصر / إلغاء عند الحاجة)
-- [ ] Advisors أمني بعد الدفع
+1. أوقف خدمة Railway عند التأكد من التطبيق.
+2. أبقِ `server/` كمرجع تاريخي أو احذفه لاحقًا.

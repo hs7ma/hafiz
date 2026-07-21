@@ -71,8 +71,8 @@ class SyncController extends Notifier<SyncStatus> {
     return SyncStatus(
       phase: ApiConfig.isConfigured ? SyncPhase.idle : SyncPhase.offline,
       message: ApiConfig.isConfigured
-          ? 'جاهز للمزامنة'
-          : 'وضع محلي فقط (بدون API_BASE_URL)',
+          ? 'جاهز للمزامنة مع Supabase'
+          : 'وضع محلي فقط (بدون خادم)',
     );
   }
 

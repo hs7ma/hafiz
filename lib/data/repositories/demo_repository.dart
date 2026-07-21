@@ -54,7 +54,7 @@ class DemoHafizRepository {
   final Map<String, MemorizationLevel> lastMemorizationByStudent = {};
 
   int get pendingSyncCount => _syncQueue.length;
-  bool get apiConfigured => ApiConfig.isConfigured;
+  bool get apiConfigured => _api.isConfigured;
 
   /// استعادة الحالة من التخزين المحلي، أو زرع بيانات تجريبية إن لم يوجد شيء.
   Future<void> restore() async {

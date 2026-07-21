@@ -1,42 +1,30 @@
 # حافظ
 
 تطبيق Flutter لتنظيم حضور وحفظ طلبة دورات تحفيظ القرآن في المساجد.
-يعمل **أوفلاين أولًا**: يحفظ على الجهاز ثم يزامن مع **Supabase** (Edge Functions + Postgres).
+يعمل **أوفلاين أولًا** ويُزامن مع **Supabase** (Edge Functions + Postgres).
 
-## التشغيل السريع
+## التشغيل
 
 ```bash
 flutter pub get
-flutter run ^
-  --dart-define=SUPABASE_URL=https://YOUR_REF.supabase.co ^
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY ^
-  --dart-define=API_BASE_URL=
+flutter run
 ```
 
-التفاصيل الكاملة للهجرة والنشر: [`supabase/README.md`](supabase/README.md)
+الافتراضي يتصل بمشروع Supabase `qlqzdtphwmoohqgqftuv` عبر مفتاح anon المضمّن.
+لا حاجة لـ Railway.
 
-## خلفية Express/Railway (قديم — قيد الإيقاف)
+## الصفحات العامة
 
-المجلد `server/` كان يخدم نفس قاعدة Supabase Postgres عبر Express على Railway.
-بعد اكتمال الهجرة يُستبدل بـ Edge Functions. راجع ملاحظات الإيقاف في `server/README.md`.
+- تسجيل جامع: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-register
+- إدارة المنصة: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-platform
 
 ## بناء APK
 
 ```bash
-flutter build apk --release ^
-  --dart-define=SUPABASE_URL=https://YOUR_REF.supabase.co ^
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY ^
-  --dart-define=API_BASE_URL=
+flutter build apk --release
 ```
 
-الملف: `build/app/outputs/flutter-apk/app-release.apk`
-
-## سلوك المزامنة الأوفلاين
-
-1. كل عملية تُحفظ فورًا محليًا (SharedPreferences)
-2. تُضاف إلى طابور مزامنة
-3. عند الاتصال: `POST .../hafiz-api/sync/push` ثم سحب لقطة المسجد
-4. `connectivity_plus` يعيد المحاولة عند عودة الشبكة
+الملف: `releases/hafiz.apk` (بعد النسخ من مخرجات البناء)
 
 ## حسابات التجربة
 
@@ -49,7 +37,9 @@ flutter build apk --release ^
 ## هيكل المشروع
 
 ```
-lib/          تطبيق Flutter (أوفلاين + مزامنة)
+lib/          تطبيق Flutter
 supabase/     Migrations + Edge Functions (المسار المعتمد)
-server/       Express القديم (احتياطي أثناء الانتقال)
+server/       Express القديم (مرجع فقط — يمكن إيقاف Railway)
 ```
+
+التفاصيل: [`supabase/README.md`](supabase/README.md)

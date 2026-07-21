@@ -1,20 +1,21 @@
 /// إعدادات عميل Supabase (anon/publishable فقط — لا تستخدم service_role هنا).
 ///
-/// التشغيل:
-///   flutter run \\
-///     --dart-define=SUPABASE_URL=https://YOUR_REF.supabase.co \\
-///     --dart-define=SUPABASE_ANON_KEY=eyJ...
-///
-/// إن تُركا فارغين يُستخدم مسار Railway القديم عبر [ApiConfig] إن وُجد.
+/// الافتراضي: مشروع hafiz على Supabase.
+/// تجاوز:
+///   --dart-define=SUPABASE_URL=...
+///   --dart-define=SUPABASE_ANON_KEY=...
+/// تعطيل:
+///   --dart-define=SUPABASE_URL= --dart-define=SUPABASE_ANON_KEY=
 class SupabaseConfig {
   static const url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://qlqzdtphwmoohqgqftuv.supabase.co',
   );
 
   static const anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: '',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFscXpkdHBod21vb2hxZ3FmdHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NzIwMDcsImV4cCI6MjEwMDE0ODAwN30.3fNguivvv7YSpKqVx5YwoJwWljtwFsYV5EXQHllVbeY',
   );
 
   static bool get isConfigured =>

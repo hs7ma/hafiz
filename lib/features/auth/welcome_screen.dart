@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../core/constants/api_config.dart';
+import '../../core/constants/supabase_config.dart';
 import '../../data/repositories/demo_repository.dart';
 import '../../data/sync/sync_controller.dart';
 
@@ -276,7 +277,13 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
   bool _submitting = false;
   String? _error;
 
-  static String get _registerUrl => '${ApiConfig.normalizedBase}/register';
+  static String get _registerUrl {
+    if (SupabaseConfig.isConfigured) return SupabaseConfig.registerPageUrl;
+    if (ApiConfig.normalizedBase.isNotEmpty) {
+      return '${ApiConfig.normalizedBase}/register';
+    }
+    return '';
+  }
 
   @override
   void dispose() {
@@ -305,11 +312,12 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
   }
 
   Future<void> _openRegisterPage() async {
-    if (!ApiConfig.isConfigured) {
+    final url = _registerUrl;
+    if (url.isEmpty) {
       setState(() => _error = 'الخادم غير مضبوط — لا يمكن فتح صفحة التسجيل');
       return;
     }
-    final uri = Uri.parse(_registerUrl);
+    final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted) return;
     if (!ok) {
