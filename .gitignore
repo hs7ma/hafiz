@@ -56,6 +56,7 @@ app.*.map.json
 # Local build dumps / release artifacts / scratch tools
 *.hprof
 /releases/
+!/website/hafiz.apk
 /tools/*.mp3
 /tools/*.json
 !/tools/prepare_brand_assets.py
