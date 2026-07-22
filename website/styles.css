@@ -79,9 +79,11 @@ a {
 }
 
 .hero__mark {
-  width: min(15rem, 58vw);
+  width: min(20rem, 72vw);
   margin-inline: auto;
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.25));
+  filter:
+    drop-shadow(0 0 1px rgba(247, 241, 230, 0.35))
+    drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45));
   animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
