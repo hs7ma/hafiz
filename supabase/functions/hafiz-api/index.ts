@@ -2,14 +2,21 @@ import { corsHeaders, error, json, readJson, bearerToken } from "../_shared/http
 import { serviceClient } from "../_shared/supabase.ts";
 import {
   englishPrefix,
+  ensureUuid,
   looksLikeEmail,
   looksLikeWhatsappPhone,
   mosqueAdminPassword,
+  normalizeInviteCode,
   normalizeWhatsappDigits,
   randomToken,
+  sha256Hex,
+  sixDigitOtp,
   studentCode,
   studentUsername,
+  STUDENT_COUNT_RANGES,
+  TEACHER_COUNT_RANGES,
   teacherCode,
+  teacherInviteCode,
 } from "../_shared/codes.ts";
 import { hashPassword, verifyPassword } from "../_shared/password.ts";
 
@@ -35,10 +42,44 @@ function publicRequest(row: Record<string, unknown>) {
     mosque_name: row.mosque_name,
     email: row.email,
     whatsapp_phone: row.whatsapp_phone,
+    governorate: row.governorate ?? null,
+    district: row.district ?? null,
+    area: row.area ?? null,
+    students_range: row.students_range ?? null,
+    teachers_range: row.teachers_range ?? null,
+    email_verified_at: row.email_verified_at ?? null,
     status: row.status,
     mosque_id: row.mosque_id ?? null,
     reviewed_at: row.reviewed_at ?? null,
     created_at: row.created_at,
+  };
+}
+
+function statusLabelAr(status: string): string {
+  if (status === "pending") return "قيد المراجعة";
+  if (status === "approved") return "مقبول";
+  if (status === "rejected") return "مرفوض";
+  return status;
+}
+
+/** يتحقق من جلسة Supabase Auth بعد OTP البريد ويعيد البريد والمستخدم. */
+async function requireVerifiedAuthEmail(
+  req: Request,
+): Promise<{ email: string; userId: string; emailVerifiedAt: string } | null> {
+  const token = bearerToken(req);
+  const anon = String(Deno.env.get("SUPABASE_ANON_KEY") || "").trim();
+  if (!token || (anon && token === anon)) return null;
+  const sb = serviceClient();
+  const { data, error: err } = await sb.auth.getUser(token);
+  if (err || !data.user?.email) return null;
+  const email = data.user.email.trim().toLowerCase();
+  if (!looksLikeEmail(email)) return null;
+  const confirmed = data.user.email_confirmed_at || data.user.confirmed_at;
+  if (!confirmed) return null;
+  return {
+    email,
+    userId: data.user.id,
+    emailVerifiedAt: String(confirmed),
   };
 }
 
@@ -56,7 +97,9 @@ async function requirePlatform(req: Request) {
 }
 
 async function requireActor(req: Request): Promise<ActorSession | null> {
-  const token = bearerToken(req);
+  // فضّل x-hafiz-token حتى يبقى Authorization = anon JWT لبوابة Supabase
+  const token =
+    (req.headers.get("x-hafiz-token") || "").trim() || bearerToken(req);
   if (!token) return null;
   const sb = serviceClient();
   const { data } = await sb
@@ -84,7 +127,7 @@ async function createActorSession(
     mosque_id: mosqueId,
     expires_at: expires,
   });
-  if (err) throw err;
+  if (err) throw new Error(err.message || JSON.stringify(err));
   return token;
 }
 
@@ -131,17 +174,182 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    // ---- Registration (public) ----
+    // ---- Registration email OTP (app-owned, code only — no magic links) ----
+    if (method === "POST" && path === "/registration/email-otp/send") {
+      const body = await readJson(req);
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!looksLikeEmail(email)) return error("البريد غير صالح");
+      const code = sixDigitOtp();
+      const codeHash = await sha256Hex(code);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      const sb = serviceClient();
+      await sb.from("registration_email_otps").delete().eq("email", email).is("consumed_at", null);
+
+      let delivery: "email" | "manual" = "email";
+      let sendError: string | null = null;
+      try {
+        const apiKey = String(Deno.env.get("RESEND_API_KEY") || "").trim();
+        if (!apiKey) throw new Error("RESEND_API_KEY missing");
+        const from =
+          String(Deno.env.get("AUTH_EMAIL_FROM") || "").trim() ||
+          "Hafiz <onboarding@resend.dev>";
+        const html =
+          `<h2>رمز التحقق — حافظ</h2><p>أدخل هذا الرمز في التطبيق:</p>` +
+          `<p style="font-size:36px;font-weight:700;letter-spacing:8px;text-align:center">${code}</p>` +
+          `<p>لا تفتح أي رابط. ينتهي خلال 15 دقيقة.</p>`;
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from,
+            to: [email],
+            subject: "رمز التحقق — حافظ",
+            html,
+            text: `Hafiz code: ${code}`,
+          }),
+        });
+        if (!res.ok) {
+          const t = await res.text();
+          if (t.includes("testing emails") || t.includes("verify a domain") || res.status === 403) {
+            delivery = "manual";
+            sendError = "resend_testing_mode";
+          } else {
+            throw new Error(`Resend ${res.status}: ${t}`);
+          }
+        }
+      } catch (e) {
+        delivery = "manual";
+        sendError = e instanceof Error ? e.message : String(e);
+      }
+
+      const { error: insErr } = await sb.from("registration_email_otps").insert({
+        email,
+        code_hash: codeHash,
+        code_plain: delivery === "manual" ? code : null,
+        delivery,
+        expires_at: expiresAt,
+      });
+      if (insErr) return error(insErr.message, 500);
+
+      // #region agent log
+      fetch('http://127.0.0.1:7508/ingest/8ce7454f-a04c-4250-8d9a-628369f96a33',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d34801'},body:JSON.stringify({sessionId:'d34801',hypothesisId:'E1',location:'registration/email-otp/send',message:'otp_created',data:{delivery,sendError,domain:email.split('@')[1]||''},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
+      return json({
+        ok: true,
+        delivery,
+        expires_at: expiresAt,
+        message: delivery === "email"
+          ? "أُرسل رمز التحقق إلى بريدك. أدخله في التطبيق."
+          : "تعذّر الإرسال التلقائي لهذا البريد. اطلب الرمز من إدارة منصة حافظ (يظهر لديهم لـ15 دقيقة)، أو وثّق نطاقاً في Resend.",
+      });
+    }
+
+    if (method === "POST" && path === "/registration/email-otp/verify") {
+      const body = await readJson(req);
+      const email = String(body.email || "").trim().toLowerCase();
+      const code = String(body.code || "").trim();
+      if (!looksLikeEmail(email)) return error("البريد غير صالح");
+      if (!/^\d{6}$/.test(code)) return error("أدخل الرمز المكوّن من 6 أرقام");
+      const sb = serviceClient();
+      const codeHash = await sha256Hex(code);
+      const { data: row } = await sb
+        .from("registration_email_otps")
+        .select("*")
+        .eq("email", email)
+        .eq("code_hash", codeHash)
+        .is("consumed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!row) return error("رمز غير صحيح", 401);
+      if (new Date(row.expires_at).getTime() < Date.now()) {
+        return error("انتهت صلاحية الرمز — اطلب رمزاً جديداً", 410);
+      }
+      await sb
+        .from("registration_email_otps")
+        .update({ consumed_at: new Date().toISOString(), code_plain: null })
+        .eq("id", row.id);
+      const proof = randomToken(24);
+      const proofExp = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      await sb.from("registration_proofs").delete().eq("email", email);
+      const { error: pErr } = await sb.from("registration_proofs").insert({
+        token: proof,
+        email,
+        expires_at: proofExp,
+      });
+      if (pErr) return error(pErr.message, 500);
+      return json({
+        ok: true,
+        registration_proof: proof,
+        email,
+        expires_at: proofExp,
+        message: "تم التحقق من البريد بنجاح",
+      });
+    }
+
+    // ---- Registration (in-app, requires verified email session OR registration proof) ----
     if (method === "POST" && path === "/registration-requests") {
       const body = await readJson(req);
+      const proofToken = String(
+        body.registration_proof || req.headers.get("x-registration-proof") || "",
+      ).trim();
+      let email = "";
+      let emailVerifiedAt = new Date().toISOString();
+      let authUserId: string | null = null;
+
+      const verified = await requireVerifiedAuthEmail(req);
+      if (verified) {
+        email = verified.email;
+        emailVerifiedAt = verified.emailVerifiedAt;
+        authUserId = verified.userId;
+      } else if (proofToken) {
+        const sbProof = serviceClient();
+        const { data: proof } = await sbProof
+          .from("registration_proofs")
+          .select("*")
+          .eq("token", proofToken)
+          .maybeSingle();
+        if (!proof) return error("يلزم التحقق من البريد أولاً", 401);
+        if (new Date(proof.expires_at).getTime() < Date.now()) {
+          return error("انتهت جلسة التحقق — أعد إرسال الرمز", 401);
+        }
+        email = String(proof.email).toLowerCase();
+        emailVerifiedAt = proof.created_at || emailVerifiedAt;
+      } else {
+        return error("يلزم التحقق من البريد الإلكتروني من داخل التطبيق أولاً", 401);
+      }
+
       const mosqueName = String(body.mosque_name || "").trim();
-      const email = String(body.email || "").trim().toLowerCase();
+      const emailFromBody = String(body.email || "").trim().toLowerCase();
+      if (emailFromBody && emailFromBody !== email) {
+        return error("البريد لا يطابق الجلسة المتحقّق منها", 400);
+      }
+
       const rawPhone = String(body.whatsapp_phone || "").trim();
       const whatsappPhone = normalizeWhatsappDigits(rawPhone);
+      const governorate = String(body.governorate || "").trim();
+      const district = String(body.district || "").trim();
+      const area = String(body.area || "").trim();
+      const studentsRange = String(body.students_range || "").trim();
+      const teachersRange = String(body.teachers_range || "").trim();
 
       if (!mosqueName) return error("أدخل اسم الجامع");
-      if (!looksLikeEmail(email)) return error("البريد غير صالح");
-      if (!looksLikeWhatsappPhone(rawPhone)) return error("رقم واتساب غير صالح");
+      if (!looksLikeWhatsappPhone(rawPhone) && !looksLikeWhatsappPhone(whatsappPhone)) {
+        return error("رقم واتساب غير صالح");
+      }
+      if (!governorate) return error("اختر المحافظة");
+      if (!district) return error("اختر القضاء");
+      if (!area) return error("أدخل المنطقة");
+      if (!(STUDENT_COUNT_RANGES as readonly string[]).includes(studentsRange)) {
+        return error("نطاق عدد الطلاب غير صالح");
+      }
+      if (!(TEACHER_COUNT_RANGES as readonly string[]).includes(teachersRange)) {
+        return error("نطاق عدد المدرّسين غير صالح");
+      }
 
       const sb = serviceClient();
       const { data: existsMosque } = await sb
@@ -156,7 +364,7 @@ Deno.serve(async (req) => {
         .select("id")
         .eq("email", email)
         .maybeSingle();
-      if (existsEmail) return error("البريد مستخدم مسبقًا", 409);
+      if (existsEmail) return error("البريد مستخدم مسبقًا — يمكنك الدخول مباشرة", 409);
 
       const { data: pendingDup } = await sb
         .from("mosque_registration_requests")
@@ -173,6 +381,13 @@ Deno.serve(async (req) => {
         mosque_name: mosqueName,
         email,
         whatsapp_phone: whatsappPhone,
+        governorate,
+        district,
+        area,
+        students_range: studentsRange,
+        teachers_range: teachersRange,
+        email_verified_at: emailVerifiedAt,
+        auth_user_id: authUserId,
         status: "pending",
       };
       const { data, error: err } = await sb
@@ -184,10 +399,44 @@ Deno.serve(async (req) => {
       return json(
         {
           request: publicRequest(data),
-          message: "تم إرسال الطلب. انتظر موافقة إدارة حافظ.",
+          message: "تم إرسال الطلب. يمكنك متابعة حالته من داخل التطبيق.",
         },
         201,
       );
+    }
+
+    // حالة طلب التسجيل بالبريد (من داخل التطبيق)
+    if (method === "GET" && path === "/registration-requests/status") {
+      const url = new URL(req.url);
+      const email = String(url.searchParams.get("email") || "").trim().toLowerCase();
+      if (!looksLikeEmail(email)) return error("البريد غير صالح");
+      const sb = serviceClient();
+      const { data, error: err } = await sb
+        .from("mosque_registration_requests")
+        .select("*")
+        .eq("email", email)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (err) return error(err.message, 500);
+      if (!data) {
+        return json({
+          found: false,
+          message: "لا يوجد طلب تسجيل لهذا البريد",
+        });
+      }
+      const reqPublic = publicRequest(data);
+      return json({
+        found: true,
+        request: reqPublic,
+        status_label: statusLabelAr(String(data.status)),
+        message:
+          data.status === "pending"
+            ? "طلبك قيد مراجعة إدارة حافظ."
+            : data.status === "approved"
+            ? "تمت الموافقة. استخدم بيانات الدخول المرسلة عبر واتساب."
+            : "تم رفض الطلب. تواصل مع إدارة حافظ إن لزم.",
+      });
     }
 
     if (method === "GET" && path === "/registration-requests") {
@@ -205,6 +454,23 @@ Deno.serve(async (req) => {
       const { data, error: err } = await q;
       if (err) return error(err.message, 500);
       return json({ requests: (data || []).map((r) => publicRequest(r)) });
+    }
+
+    // رموز تحقق يدوية عند فشل Resend (يظهر الرمز لإدارة المنصة فقط)
+    if (method === "GET" && path === "/platform/manual-otps") {
+      const token = await requirePlatform(req);
+      if (!token) return error("يلزم تسجيل دخول الإدارة", 401);
+      const sb = serviceClient();
+      const { data, error: err } = await sb
+        .from("registration_email_otps")
+        .select("id, email, code_plain, delivery, expires_at, created_at")
+        .eq("delivery", "manual")
+        .is("consumed_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (err) return error(err.message, 500);
+      return json({ otps: data || [] });
     }
 
     if (method === "GET" && path === "/platform/mosques") {
@@ -267,7 +533,16 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existsEmail) return error("البريد مستخدم مسبقًا", 409);
 
-      const plainPassword = mosqueAdminPassword();
+      const body = await readJson(req);
+      const requestedPassword = String(body.password || body.admin_password || "").trim();
+      let plainPassword = requestedPassword;
+      if (plainPassword) {
+        if (plainPassword.length < 6) {
+          return error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+        }
+      } else {
+        plainPassword = mosqueAdminPassword();
+      }
       const mosqueId = crypto.randomUUID();
       const adminId = crypto.randomUUID();
       const now = new Date().toISOString();
@@ -276,27 +551,83 @@ Deno.serve(async (req) => {
         id: mosqueId,
         name: request.mosque_name,
         whatsapp_phone: request.whatsapp_phone,
+        governorate: request.governorate ?? null,
+        district: request.district ?? null,
+        area: request.area ?? null,
+        students_range: request.students_range ?? null,
+        teachers_range: request.teachers_range ?? null,
         created_at: now,
       });
       if (mErr) return error(mErr.message, 500);
 
-      // Create Auth user; store role in app_metadata (not user_metadata)
-      const { data: authData, error: authErr } = await sb.auth.admin.createUser({
-        email: request.email,
-        password: plainPassword,
-        email_confirm: true,
-        app_metadata: {
-          role: "mosque_admin",
-          mosque_id: mosqueId,
-          admin_id: adminId,
-        },
-        user_metadata: {
-          full_name: `مسؤول ${request.mosque_name}`,
-        },
-      });
-      if (authErr) {
-        await sb.from("mosques").delete().eq("id", mosqueId);
-        return error(authErr.message || "تعذّر إنشاء حساب الدخول", 500);
+      let authUserId = request.auth_user_id ? String(request.auth_user_id) : "";
+      if (authUserId) {
+        const { error: updErr } = await sb.auth.admin.updateUserById(authUserId, {
+          password: plainPassword,
+          email_confirm: true,
+          app_metadata: {
+            role: "mosque_admin",
+            mosque_id: mosqueId,
+            admin_id: adminId,
+          },
+          user_metadata: {
+            full_name: `مسؤول ${request.mosque_name}`,
+          },
+        });
+        if (updErr) {
+          await sb.from("mosques").delete().eq("id", mosqueId);
+          return error(updErr.message || "تعذّر تحديث حساب الدخول", 500);
+        }
+      } else {
+        const { data: authData, error: authErr } = await sb.auth.admin.createUser({
+          email: request.email,
+          password: plainPassword,
+          email_confirm: true,
+          app_metadata: {
+            role: "mosque_admin",
+            mosque_id: mosqueId,
+            admin_id: adminId,
+          },
+          user_metadata: {
+            full_name: `مسؤول ${request.mosque_name}`,
+          },
+        });
+        if (authErr) {
+          // قد يكون المستخدم موجوداً من تحقق OTP دون ربطه بالطلب
+          const msg = String(authErr.message || "");
+          if (/already|registered|exists/i.test(msg)) {
+            const listed = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            const found = (listed.data?.users || []).find(
+              (u) => (u.email || "").toLowerCase() === String(request.email).toLowerCase(),
+            );
+            if (!found) {
+              await sb.from("mosques").delete().eq("id", mosqueId);
+              return error(authErr.message || "تعذّر إنشاء حساب الدخول", 500);
+            }
+            authUserId = found.id;
+            const { error: updErr } = await sb.auth.admin.updateUserById(authUserId, {
+              password: plainPassword,
+              email_confirm: true,
+              app_metadata: {
+                role: "mosque_admin",
+                mosque_id: mosqueId,
+                admin_id: adminId,
+              },
+              user_metadata: {
+                full_name: `مسؤول ${request.mosque_name}`,
+              },
+            });
+            if (updErr) {
+              await sb.from("mosques").delete().eq("id", mosqueId);
+              return error(updErr.message || "تعذّر تحديث حساب الدخول", 500);
+            }
+          } else {
+            await sb.from("mosques").delete().eq("id", mosqueId);
+            return error(authErr.message || "تعذّر إنشاء حساب الدخول", 500);
+          }
+        } else {
+          authUserId = authData.user.id;
+        }
       }
 
       const { error: aErr } = await sb.from("mosque_admins").insert({
@@ -305,11 +636,10 @@ Deno.serve(async (req) => {
         full_name: `مسؤول ${request.mosque_name}`,
         email: request.email,
         password_hash: hashPassword(plainPassword),
-        auth_user_id: authData.user.id,
+        auth_user_id: authUserId,
         created_at: now,
       });
       if (aErr) {
-        await sb.auth.admin.deleteUser(authData.user.id);
         await sb.from("mosques").delete().eq("id", mosqueId);
         return error(aErr.message, 500);
       }
@@ -328,6 +658,11 @@ Deno.serve(async (req) => {
         id: mosqueId,
         name: request.mosque_name,
         whatsapp_phone: request.whatsapp_phone,
+        governorate: request.governorate ?? null,
+        district: request.district ?? null,
+        area: request.area ?? null,
+        students_range: request.students_range ?? null,
+        teachers_range: request.teachers_range ?? null,
         created_at: now,
       };
       const admin = {
@@ -479,11 +814,117 @@ Deno.serve(async (req) => {
       });
     }
 
+    // تغيير كلمة مرور مسؤول الجامع
+    if (method === "POST" && path === "/auth/change-password") {
+      const actor = await requireActor(req);
+      if (!actor || actor.role !== "mosque_admin") {
+        return error("يلزم تسجيل دخول إدارة الجامع", 401);
+      }
+      const body = await readJson(req);
+      const currentPassword = String(body.current_password || "");
+      const newPassword = String(body.new_password || "");
+      if (newPassword.length < 6) {
+        return error("كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل");
+      }
+      if (currentPassword === newPassword) {
+        return error("كلمة المرور الجديدة مطابقة للحالية");
+      }
+
+      const sb = serviceClient();
+      const { data: admin } = await sb
+        .from("mosque_admins")
+        .select("*")
+        .eq("id", actor.actor_id)
+        .maybeSingle();
+      if (!admin) return error("الحساب غير موجود", 404);
+
+      let currentOk = false;
+      if (admin.auth_user_id) {
+        const { data: signed, error: sErr } = await sb.auth.signInWithPassword({
+          email: admin.email,
+          password: currentPassword,
+        });
+        currentOk = !sErr && !!signed.session;
+      }
+      if (!currentOk) {
+        currentOk = verifyPassword(currentPassword, admin.password_hash);
+      }
+      if (!currentOk) return error("كلمة المرور الحالية غير صحيحة", 401);
+
+      const { error: hashErr } = await sb
+        .from("mosque_admins")
+        .update({ password_hash: hashPassword(newPassword) })
+        .eq("id", admin.id);
+      if (hashErr) return error(hashErr.message, 500);
+
+      if (admin.auth_user_id) {
+        const { error: updErr } = await sb.auth.admin.updateUserById(admin.auth_user_id, {
+          password: newPassword,
+        });
+        if (updErr) return error(updErr.message || "تعذّر تحديث كلمة المرور", 500);
+      }
+
+      return json({ ok: true, message: "تم تغيير كلمة المرور بنجاح" });
+    }
+
     if (method === "POST" && path === "/auth/teacher-login") {
       const body = await readJson(req);
+      const email = String(body.email || "").trim().toLowerCase();
+      const password = String(body.password || "");
       const fullName = String(body.full_name || "").trim();
       const code = String(body.login_code || "").trim().toUpperCase();
       const sb = serviceClient();
+
+      // المسار الجديد: بريد + كلمة مرور
+      if (email && password) {
+        const { data: teacher } = await sb
+          .from("teachers")
+          .select("*")
+          .ilike("email", email)
+          .limit(1)
+          .maybeSingle();
+        if (!teacher) return error("بيانات الدخول غير صحيحة", 401);
+
+        let ok = false;
+        if (teacher.auth_user_id) {
+          const { data: signed, error: sErr } = await sb.auth.signInWithPassword({
+            email,
+            password,
+          });
+          ok = !sErr && !!signed.session;
+        }
+        if (!ok) ok = verifyPassword(password, teacher.password_hash);
+        if (!ok) return error("بيانات الدخول غير صحيحة", 401);
+
+        const { data: mosque } = await sb
+          .from("mosques")
+          .select("*")
+          .eq("id", teacher.mosque_id)
+          .maybeSingle();
+        const sessionToken = await createActorSession(
+          "teacher",
+          teacher.id,
+          teacher.mosque_id,
+        );
+        return json({
+          user: {
+            id: teacher.id,
+            full_name: teacher.full_name,
+            role: "teacher",
+            mosque_id: teacher.mosque_id,
+            email: teacher.email || email,
+            mosque_name: mosque?.name || null,
+          },
+          teacher,
+          mosque,
+          hafiz_token: sessionToken,
+        });
+      }
+
+      // مسار قديم (تجريبي/قديم): اسم + رمز دائم
+      if (!fullName || !code) {
+        return error("أدخل البريد وكلمة المرور، أو الاسم ورمز الدخول");
+      }
       const { data: teacher } = await sb
         .from("teachers")
         .select("*")
@@ -504,13 +945,240 @@ Deno.serve(async (req) => {
           full_name: teacher.full_name,
           role: "teacher",
           mosque_id: teacher.mosque_id,
-          email: "",
+          email: teacher.email || "",
           mosque_name: mosque?.name || null,
         },
         teacher,
         mosque,
         hafiz_token: sessionToken,
       });
+    }
+
+    // ---- Teacher invites (secure short-lived) ----
+    if (method === "POST" && path === "/teachers/invites") {
+      const actor = await requireActor(req);
+      if (!actor || actor.role !== "mosque_admin") {
+        return error("يلزم تسجيل دخول إدارة الجامع", 401);
+      }
+      const sb = serviceClient();
+      const plainCode = teacherInviteCode();
+      const codeHash = await sha256Hex(normalizeInviteCode(plainCode));
+      const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+      const id = crypto.randomUUID();
+      const { data: mosque } = await sb
+        .from("mosques")
+        .select("id, name")
+        .eq("id", actor.mosque_id)
+        .maybeSingle();
+      if (!mosque) return error("المسجد غير موجود", 404);
+
+      const { error: err } = await sb.from("teacher_invites").insert({
+        id,
+        mosque_id: actor.mosque_id,
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        created_by_admin_id: actor.actor_id,
+      });
+      if (err) return error(err.message, 500);
+
+      return json({
+        invite: {
+          id,
+          code: plainCode,
+          expires_at: expiresAt,
+          mosque: { id: mosque.id, name: mosque.name },
+        },
+        message: "شارك الرمز مع المدرّس خلال دقيقتين. يُستخدم مرة واحدة فقط.",
+      }, 201);
+    }
+
+    if (method === "POST" && path === "/teachers/invites/verify") {
+      const body = await readJson(req);
+      const normalized = normalizeInviteCode(String(body.code || ""));
+      if (normalized.length !== 12) return error("رمز الدعوة غير مكتمل");
+
+      const sb = serviceClient();
+      const codeHash = await sha256Hex(normalized);
+      const { data: invite } = await sb
+        .from("teacher_invites")
+        .select("*")
+        .eq("code_hash", codeHash)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!invite) return error("رمز الدعوة غير صحيح", 404);
+      if (invite.consumed_at) return error("تم استخدام هذا الرمز مسبقاً", 409);
+      if (invite.failed_attempts >= 5) {
+        return error("تم قفل الرمز بسبب محاولات فاشلة كثيرة", 429);
+      }
+      if (new Date(invite.expires_at).getTime() < Date.now()) {
+        await sb
+          .from("teacher_invites")
+          .update({ failed_attempts: (invite.failed_attempts || 0) + 1 })
+          .eq("id", invite.id);
+        return error("انتهت صلاحية الرمز — اطلب رمزاً جديداً من إدارة المسجد", 410);
+      }
+
+      const { data: mosque } = await sb
+        .from("mosques")
+        .select("id, name")
+        .eq("id", invite.mosque_id)
+        .maybeSingle();
+      if (!mosque) return error("المسجد غير موجود", 404);
+
+      const registrationToken = randomToken(24);
+      const registrationTokenHash = await sha256Hex(registrationToken);
+      await sb
+        .from("teacher_invites")
+        .update({
+          registration_token_hash: registrationTokenHash,
+          failed_attempts: 0,
+        })
+        .eq("id", invite.id);
+
+      return json({
+        invite_token: registrationToken,
+        invite_id: invite.id,
+        expires_at: invite.expires_at,
+        mosque: { id: mosque.id, name: mosque.name },
+        message: `أنت بصدد التسجيل كمدرّس لصالح مسجد «${mosque.name}»`,
+      });
+    }
+
+    if (method === "POST" && path === "/teachers/register") {
+      const body = await readJson(req);
+      const inviteToken = String(body.invite_token || "").trim();
+      const fullName = String(body.full_name || "").trim();
+      const email = String(body.email || "").trim().toLowerCase();
+      const password = String(body.password || "");
+      const rawPhone = String(body.whatsapp_phone || "").trim();
+      const whatsappPhone = normalizeWhatsappDigits(rawPhone);
+
+      if (!inviteToken) return error("رمز الجلسة مفقود — أعد إدخال رمز الدعوة");
+      if (!fullName) return error("أدخل الاسم الكامل");
+      if (!looksLikeEmail(email)) return error("البريد غير صالح");
+      if (password.length < 6) return error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      if (!looksLikeWhatsappPhone(rawPhone) && !looksLikeWhatsappPhone(whatsappPhone)) {
+        return error("رقم واتساب غير صالح");
+      }
+
+      const sb = serviceClient();
+      const tokenHash = await sha256Hex(inviteToken);
+      const { data: invite } = await sb
+        .from("teacher_invites")
+        .select("*")
+        .eq("registration_token_hash", tokenHash)
+        .limit(1)
+        .maybeSingle();
+
+      if (!invite) return error("جلسة التسجيل غير صالحة — أعد إدخال رمز الدعوة", 401);
+      if (invite.consumed_at) return error("تم استخدام الدعوة مسبقاً", 409);
+      if (new Date(invite.expires_at).getTime() < Date.now()) {
+        return error("انتهت صلاحية الدعوة", 410);
+      }
+
+      const { data: emailTaken } = await sb
+        .from("teachers")
+        .select("id")
+        .ilike("email", email)
+        .limit(1)
+        .maybeSingle();
+      if (emailTaken) return error("البريد مستخدم مسبقاً", 409);
+
+      const { data: nameTaken } = await sb
+        .from("teachers")
+        .select("id")
+        .eq("mosque_id", invite.mosque_id)
+        .eq("full_name", fullName)
+        .maybeSingle();
+      if (nameTaken) return error("يوجد مدرّس بهذا الاسم في المسجد", 409);
+
+      const teacherId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const legacyCode = teacherCode(fullName);
+      const prefix = englishPrefix(fullName);
+
+      const { data: authData, error: authErr } = await sb.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        app_metadata: {
+          role: "teacher",
+          mosque_id: invite.mosque_id,
+          teacher_id: teacherId,
+        },
+        user_metadata: { full_name: fullName },
+      });
+      if (authErr) {
+        const msg = String(authErr.message || "");
+        if (/already|registered|exists/i.test(msg)) {
+          return error("البريد مسجّل في نظام الدخول مسبقاً", 409);
+        }
+        return error(authErr.message || "تعذّر إنشاء الحساب", 500);
+      }
+
+      const { error: tErr } = await sb.from("teachers").insert({
+        id: teacherId,
+        mosque_id: invite.mosque_id,
+        full_name: fullName,
+        english_name: fullName,
+        english_prefix: prefix,
+        login_code: legacyCode,
+        email,
+        password_hash: hashPassword(password),
+        auth_user_id: authData.user.id,
+        whatsapp_phone: whatsappPhone,
+        created_at: now,
+      });
+      if (tErr) {
+        await sb.auth.admin.deleteUser(authData.user.id);
+        return error(tErr.message, 500);
+      }
+
+      await sb
+        .from("teacher_invites")
+        .update({
+          consumed_at: now,
+          registration_token_hash: null,
+        })
+        .eq("id", invite.id);
+
+      const { data: mosque } = await sb
+        .from("mosques")
+        .select("*")
+        .eq("id", invite.mosque_id)
+        .maybeSingle();
+
+      const sessionToken = await createActorSession(
+        "teacher",
+        teacherId,
+        invite.mosque_id,
+      );
+
+      return json({
+        user: {
+          id: teacherId,
+          full_name: fullName,
+          role: "teacher",
+          mosque_id: invite.mosque_id,
+          email,
+          mosque_name: mosque?.name || null,
+        },
+        teacher: {
+          id: teacherId,
+          full_name: fullName,
+          email,
+          whatsapp_phone: whatsappPhone,
+          mosque_id: invite.mosque_id,
+          login_code: legacyCode,
+          english_name: fullName,
+          english_prefix: prefix,
+        },
+        mosque,
+        hafiz_token: sessionToken,
+        message: "تم إنشاء حساب المدرّس بنجاح",
+      }, 201);
     }
 
     if (method === "POST" && path === "/auth/student-login") {
@@ -672,10 +1340,17 @@ Deno.serve(async (req) => {
           await applyOp(sb, op, actor.mosque_id);
           applied.push(op.id || op.type);
         } catch (e) {
+          const errMsg = e instanceof Error
+            ? e.message
+            : (e && typeof e === "object" && "message" in e)
+            ? String((e as { message: unknown }).message)
+            : typeof e === "string"
+            ? e
+            : JSON.stringify(e);
           errors.push({
             id: op.id || null,
             type: op.type,
-            error: e instanceof Error ? e.message : String(e),
+            error: errMsg || "خطأ غير معروف",
           });
         }
       }
@@ -748,9 +1423,8 @@ async function applyOp(
 
   switch (type) {
     case "upsert_teacher": {
-      if (p.mosque_id && p.mosque_id !== mosqueId) throw new Error("غير مصرح");
       const row = {
-        id: String(p.id || crypto.randomUUID()),
+        id: await ensureUuid(String(p.id || "")),
         mosque_id: mosqueId,
         full_name: String(p.full_name || ""),
         english_name: String(p.english_name || ""),
@@ -759,24 +1433,23 @@ async function applyOp(
         created_at: String(p.created_at || now),
       };
       const { error: err } = await sb.from("teachers").upsert(row);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "delete_teacher": {
       const { error: err } = await sb
         .from("teachers")
         .delete()
-        .eq("id", String(p.id))
+        .eq("id", await ensureUuid(String(p.id)))
         .eq("mosque_id", mosqueId);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_student": {
-      if (p.mosque_id && p.mosque_id !== mosqueId) throw new Error("غير مصرح");
       const row = {
-        id: String(p.id || crypto.randomUUID()),
+        id: await ensureUuid(String(p.id || "")),
         mosque_id: mosqueId,
-        teacher_id: String(p.teacher_id || ""),
+        teacher_id: await ensureUuid(String(p.teacher_id || "")),
         full_name: String(p.full_name || ""),
         grade_level: String(p.grade_level || ""),
         age: Number(p.age),
@@ -786,50 +1459,50 @@ async function applyOp(
         created_at: String(p.created_at || now),
       };
       const { error: err } = await sb.from("students").upsert(row);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "delete_student": {
       const { error: err } = await sb
         .from("students")
         .delete()
-        .eq("id", String(p.id))
+        .eq("id", await ensureUuid(String(p.id)))
         .eq("mosque_id", mosqueId);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_session": {
       const row = {
-        id: String(p.id || crypto.randomUUID()),
+        id: await ensureUuid(String(p.id || "")),
         mosque_id: mosqueId,
-        teacher_id: String(p.teacher_id || ""),
+        teacher_id: await ensureUuid(String(p.teacher_id || "")),
         session_date: String(p.session_date || ""),
         status: String(p.status || "active"),
         started_at: String(p.started_at || now),
         ended_at: p.ended_at ? String(p.ended_at) : null,
       };
       const { error: err } = await sb.from("sessions").upsert(row);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_attendance": {
       const row = {
-        id: String(p.id || crypto.randomUUID()),
-        session_id: String(p.session_id || ""),
-        student_id: String(p.student_id || ""),
+        id: await ensureUuid(String(p.id || "")),
+        session_id: await ensureUuid(String(p.session_id || "")),
+        student_id: await ensureUuid(String(p.student_id || "")),
         status: String(p.status || "unmarked"),
         memorization_level: p.memorization_level ?? null,
         behavior_score: p.behavior_score ?? null,
         marked_at: String(p.marked_at || now),
       };
       const { error: err } = await sb.from("attendance").upsert(row);
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_homework": {
       const row = {
-        id: String(p.id || crypto.randomUUID()),
-        student_id: String(p.student_id || ""),
+        id: await ensureUuid(String(p.id || "")),
+        student_id: await ensureUuid(String(p.student_id || "")),
         surah_number: Number(p.surah_number),
         from_ayah: Number(p.from_ayah),
         to_ayah: Number(p.to_ayah),
@@ -839,13 +1512,13 @@ async function applyOp(
       const { error: err } = await sb.from("student_homework").upsert(row, {
         onConflict: "student_id",
       });
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_progress": {
       const row = {
-        id: String(p.id || crypto.randomUUID()),
-        student_id: String(p.student_id || ""),
+        id: await ensureUuid(String(p.id || "")),
+        student_id: await ensureUuid(String(p.student_id || "")),
         surah_number: Number(p.surah_number),
         ayah_number: Number(p.ayah_number),
         updated_at: String(p.updated_at || now),
@@ -853,7 +1526,7 @@ async function applyOp(
       const { error: err } = await sb.from("progress").upsert(row, {
         onConflict: "student_id",
       });
-      if (err) throw err;
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_mosque":

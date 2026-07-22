@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="حافظ — تنظيم حضور وحفظ طلبة دورات تحفيظ القرآن في المساجد."
+    />
+    <title>حافظ</title>
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Scheherazade+New:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__atmosphere" aria-hidden="true"></div>
+      <div class="hero__pattern" aria-hidden="true"></div>
+
+      <div class="hero__content">
+        <img
+          class="hero__mark"
+          src="logo.svg"
+          width="280"
+          height="153"
+          alt=""
+          fetchpriority="high"
+        />
+        <h1 class="hero__brand">حافظ</h1>
+        <p class="hero__lead">
+          لتنظيم حضور وحفظ طلبة دورات القرآن في المساجد — أوفلاين أولاً.
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="hafiz.apk" download>تحميل التطبيق</a>
+          <a class="btn btn--ghost" href="#about">تعرّف أكثر</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="about" class="section section--about">
+        <h2>للمساجد والمدرّسين والطلاب</h2>
+        <p>
+          سجّل جامعك، أدِر الحلقات، تابع الحضور والواجبات، وزامن البيانات عند توفر
+          الإنترنت.
+        </p>
+      </section>
+
+      <section class="section section--download">
+        <h2>ابدأ الآن</h2>
+        <p>حمّل نسخة أندرويد وابدأ تسجيل جامعك من داخل التطبيق.</p>
+        <a class="btn btn--primary" href="hafiz.apk" download>تحميل APK</a>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>حافظ · <a href="mailto:noreply@hafizapp.xyz">hafizapp.xyz</a></p>
+    </footer>
+
+    <script>
+      const reveal = document.querySelectorAll(".section, .footer");
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add("is-visible");
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { threshold: 0.18 }
+        );
+        reveal.forEach((el) => io.observe(el));
+      } else {
+        reveal.forEach((el) => el.classList.add("is-visible"));
+      }
+    </script>
+  </body>
+</html>

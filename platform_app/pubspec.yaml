@@ -1,0 +1,36 @@
+name: hafiz_platform
+description: تطبيق إدارة منصة حافظ — موافقة طلبات تسجيل الجوامع
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.4.0
+  url_launcher: ^6.3.2
+  google_fonts: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/brand/ic_launcher.png
+  adaptive_icon_background: "#F7F1E6"
+  adaptive_icon_foreground: assets/brand/ic_launcher_foreground.png
+  adaptive_icon_foreground_inset: 16
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/

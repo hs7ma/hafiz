@@ -5,6 +5,8 @@ import '../data/models/models.dart';
 import '../data/repositories/demo_repository.dart';
 import '../features/admin/admin_home_screen.dart';
 import '../features/admin/teacher_profile_screen.dart';
+import '../features/auth/mosque_register_screen.dart';
+import '../features/auth/teacher_register_screen.dart';
 import '../features/auth/welcome_screen.dart';
 import '../features/mushaf/mushaf_screens.dart';
 import '../features/student/student_screens.dart';
@@ -17,6 +19,15 @@ String _homeFor(UserRole role) => switch (role) {
       UserRole.student => '/student',
     };
 
+bool _isPublicAuthPath(String location) {
+  return location == '/' ||
+      location == '/welcome' ||
+      location == '/register' ||
+      location == '/register/status' ||
+      location.startsWith('/register/') ||
+      location == '/teacher/register';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final user = ref.watch(authControllerProvider);
 
@@ -27,6 +38,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/welcome',
         builder: (context, state) => const WelcomeScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const MosqueRegisterScreen(),
+        routes: [
+          GoRoute(
+            path: 'status',
+            builder: (context, state) => const MosqueRequestStatusScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/teacher/register',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! TeacherInviteData) {
+            return const WelcomeScreen();
+          }
+          return TeacherRegisterScreen(invite: extra);
+        },
       ),
       GoRoute(
         path: '/admin',
@@ -95,23 +126,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final loggingIn =
-          state.matchedLocation == '/' || state.matchedLocation == '/welcome';
-      if (user == null && !loggingIn) return '/welcome';
-      if (user != null && state.matchedLocation == '/welcome') {
+      final loc = state.matchedLocation;
+      if (user == null && !_isPublicAuthPath(loc)) return '/welcome';
+      if (user != null && (loc == '/welcome' || loc == '/')) {
         return _homeFor(user.role);
       }
-      if (state.matchedLocation.startsWith('/admin') &&
+      if (loc.startsWith('/admin') &&
           user != null &&
           user.role != UserRole.mosqueAdmin) {
         return _homeFor(user.role);
       }
-      if (state.matchedLocation.startsWith('/teacher') &&
+      if (loc.startsWith('/teacher') &&
           user != null &&
           user.role != UserRole.teacher) {
         return _homeFor(user.role);
       }
-      if (state.matchedLocation.startsWith('/student') &&
+      if (loc.startsWith('/student') &&
           user != null &&
           user.role != UserRole.student) {
         return _homeFor(user.role);

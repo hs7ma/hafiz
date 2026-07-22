@@ -1,0 +1,288 @@
+:root {
+  --olive: #1f4d3a;
+  --olive-dark: #0f2a1e;
+  --olive-mid: #16382a;
+  --gold: #c2a15a;
+  --gold-soft: #d4b978;
+  --ivory: #f7f1e6;
+  --ink: #1a2420;
+  --soft: #dce8e0;
+  --font-display: "Scheherazade New", "Traditional Arabic", serif;
+  --font-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--ivory);
+  line-height: 1.7;
+  text-rendering: optimizeLegibility;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+/* —— Hero: one full-bleed composition —— */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: clip;
+  color: var(--ivory);
+  isolation: isolate;
+}
+
+.hero__atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 90% 70% at 70% 15%, rgba(194, 161, 90, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 10% 90%, rgba(31, 77, 58, 0.9), transparent 50%),
+    linear-gradient(165deg, var(--olive) 0%, var(--olive-mid) 48%, var(--olive-dark) 100%);
+  animation: atmosphere-shift 14s ease-in-out infinite alternate;
+}
+
+.hero__pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.14;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cpath fill='none' stroke='%23c2a15a' stroke-width='1' d='M40 4 L76 40 L40 76 L4 40 Z M40 16 L64 40 L40 64 L16 40 Z'/%3E%3C/svg%3E");
+  background-size: 80px 80px;
+  animation: pattern-drift 28s linear infinite;
+}
+
+.hero__content {
+  width: min(36rem, calc(100% - 2.5rem));
+  text-align: center;
+  padding: 3rem 0 4rem;
+}
+
+.hero__mark {
+  width: min(15rem, 58vw);
+  margin-inline: auto;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.25));
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero__brand {
+  margin: 0.85rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 12vw, 5.6rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--ivory);
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+.hero__lead {
+  margin: 1rem auto 0;
+  max-width: 28rem;
+  font-size: clamp(1.05rem, 2.6vw, 1.2rem);
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ivory) 88%, var(--gold));
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.85rem;
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.7rem 1.45rem;
+  border-radius: 0.55rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn--primary {
+  background: var(--gold);
+  color: var(--olive-dark);
+}
+
+.btn--primary:hover {
+  background: var(--gold-soft);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--ivory);
+  border-color: color-mix(in srgb, var(--ivory) 45%, transparent);
+}
+
+.btn--ghost:hover {
+  border-color: var(--gold);
+  color: var(--gold-soft);
+}
+
+/* —— Sections —— */
+.section {
+  padding: clamp(3.5rem, 8vw, 5.5rem) 1.25rem;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(1.25rem);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+.section.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.section h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  font-weight: 700;
+  color: var(--olive);
+  line-height: 1.25;
+}
+
+.section p {
+  margin: 0.85rem auto 0;
+  max-width: 34rem;
+  font-size: 1.05rem;
+  color: color-mix(in srgb, var(--ink) 78%, var(--olive));
+}
+
+.section--about {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--soft) 55%, white), var(--ivory));
+}
+
+.section--download {
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 0%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 60%),
+    var(--ivory);
+}
+
+.section--download .btn {
+  margin-top: 1.5rem;
+}
+
+.footer {
+  padding: 1.75rem 1.25rem 2.25rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: color-mix(in srgb, var(--ink) 65%, var(--olive));
+  border-top: 1px solid color-mix(in srgb, var(--olive) 12%, transparent);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.footer.is-visible {
+  opacity: 1;
+}
+
+.footer a {
+  color: var(--olive);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 70%, transparent);
+}
+
+.footer a:hover {
+  color: var(--olive-dark);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.1rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes atmosphere-shift {
+  from {
+    filter: saturate(1);
+  }
+  to {
+    filter: saturate(1.12) brightness(1.04);
+  }
+}
+
+@keyframes pattern-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 80px 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .hero__atmosphere,
+  .hero__pattern,
+  .hero__mark,
+  .hero__brand,
+  .hero__lead,
+  .hero__actions {
+    animation: none;
+  }
+
+  .section,
+  .footer {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .btn:hover {
+    transform: none;
+  }
+}

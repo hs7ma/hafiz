@@ -3,23 +3,23 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/constants/api_config.dart';
 import '../../core/constants/supabase_config.dart';
 import '../local/local_store.dart';
 
 const _hafizTokenKey = 'hafiz_actor_token';
 
-/// عميل الخلفية: يفضّل Edge Functions على Supabase، مع احتياطي Railway.
+/// عميل خلفية حافظ عبر Supabase Edge Functions فقط.
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
   String? _hafizToken;
 
-  bool get isConfigured =>
-      SupabaseConfig.isConfigured || ApiConfig.isConfigured;
+  bool get isConfigured => SupabaseConfig.isConfigured;
 
-  bool get usesSupabase => SupabaseConfig.isConfigured;
+  /// هل يوجد رمز جلسة حافظ مخزّن (مطلوب لـ /sync/push).
+  bool get hasHafizToken =>
+      _hafizToken != null && _hafizToken!.trim().isNotEmpty;
 
   Future<void> loadPersistedToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -37,30 +37,25 @@ class ApiClient {
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    if (usesSupabase) {
-      final base = SupabaseConfig.functionsBase;
-      final p = path.startsWith('/') ? path : '/$path';
-      // Strip legacy /api prefix when calling Edge Function
-      final normalized = p.startsWith('/api/') ? p.substring(4) : p;
-      return Uri.parse('$base$normalized').replace(queryParameters: query);
-    }
-    final base = ApiConfig.normalizedBase;
-    return Uri.parse('$base$path').replace(queryParameters: query);
+    final base = SupabaseConfig.functionsBase;
+    final p = path.startsWith('/') ? path : '/$path';
+    // دعم مسارات قديمة تبدأ بـ /api/
+    final normalized = p.startsWith('/api/') ? p.substring(4) : p;
+    final uri = Uri.parse('$base$normalized');
+    if (query == null || query.isEmpty) return uri;
+    return uri.replace(queryParameters: query);
   }
 
   Map<String, String> _headers() {
     final headers = <String, String>{
       'Content-Type': 'application/json; charset=utf-8',
+      'apikey': SupabaseConfig.anonKey,
+      // افتراضيًا anon؛ إن وُجدت جلسة حافظ تُرسل أيضًا (متوافق مع الدوال الحالية).
+      'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
     };
-    if (usesSupabase) {
-      headers['apikey'] = SupabaseConfig.anonKey;
-      final bearer = (_hafizToken != null && _hafizToken!.isNotEmpty)
-          ? _hafizToken!
-          : SupabaseConfig.anonKey;
-      headers['Authorization'] = 'Bearer $bearer';
-      if (_hafizToken != null && _hafizToken!.isNotEmpty) {
-        headers['x-hafiz-token'] = _hafizToken!;
-      }
+    if (_hafizToken != null && _hafizToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer ${_hafizToken!}';
+      headers['x-hafiz-token'] = _hafizToken!;
     }
     return headers;
   }
@@ -70,12 +65,16 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     Map<String, String>? query,
+    String? accessToken,
   }) async {
     if (!isConfigured) {
-      throw StateError('لم يُضبط SUPABASE_URL/ANON_KEY ولا API_BASE_URL');
+      throw StateError('لم يُضبط SUPABASE_URL / SUPABASE_ANON_KEY');
     }
     final uri = _uri(path, query);
     final headers = _headers();
+    if (accessToken != null && accessToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
     late http.Response res;
     switch (method) {
       case 'GET':
@@ -127,11 +126,12 @@ class ApiClient {
     return decoded;
   }
 
+  /// فحص وصول فعلي لـ Edge Function (أطول مهلة لاستيعاب cold start على بيانات الجوال).
   Future<bool> healthCheck() async {
     try {
       final res = await _client
-          .get(_uri(usesSupabase ? '/health' : '/health'), headers: _headers())
-          .timeout(const Duration(seconds: 4));
+          .get(_uri('/health'), headers: _headers())
+          .timeout(const Duration(seconds: 15));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -153,6 +153,69 @@ class ApiClient {
         'email': email,
         'password': password,
       },
+    );
+  }
+
+  Future<Map<String, dynamic>> sendRegistrationEmailOtp(String email) {
+    return _json(
+      'POST',
+      '/api/registration/email-otp/send',
+      body: {'email': email.trim().toLowerCase()},
+    );
+  }
+
+  Future<Map<String, dynamic>> verifyRegistrationEmailOtp({
+    required String email,
+    required String code,
+  }) {
+    return _json(
+      'POST',
+      '/api/registration/email-otp/verify',
+      body: {
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+      },
+    );
+  }
+
+  /// إرسال طلب تسجيل جامع بعد التحقق من البريد (proof أو جلسة Auth).
+  Future<Map<String, dynamic>> submitMosqueRegistration({
+    String? accessToken,
+    String? registrationProof,
+    required String mosqueName,
+    required String email,
+    required String whatsappPhone,
+    required String governorate,
+    required String district,
+    required String area,
+    required String studentsRange,
+    required String teachersRange,
+  }) {
+    return _json(
+      'POST',
+      '/api/registration-requests',
+      accessToken: accessToken,
+      body: {
+        'mosque_name': mosqueName,
+        'email': email,
+        'whatsapp_phone': whatsappPhone,
+        'governorate': governorate,
+        'district': district,
+        'area': area,
+        'students_range': studentsRange,
+        'teachers_range': teachersRange,
+        if (registrationProof != null && registrationProof.isNotEmpty)
+          'registration_proof': registrationProof,
+      },
+    );
+  }
+
+  /// متابعة حالة طلب التسجيل بالبريد.
+  Future<Map<String, dynamic>> registrationRequestStatus(String email) {
+    return _json(
+      'GET',
+      '/api/registration-requests/status',
+      query: {'email': email.trim().toLowerCase()},
     );
   }
 
@@ -182,6 +245,52 @@ class ApiClient {
       body: {
         'full_name': fullName,
         'login_code': loginCode,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> loginTeacherEmail({
+    required String email,
+    required String password,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/teacher-login',
+      body: {
+        'email': email.trim().toLowerCase(),
+        'password': password,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> createTeacherInvite() {
+    return _json('POST', '/api/teachers/invites');
+  }
+
+  Future<Map<String, dynamic>> verifyTeacherInvite(String code) {
+    return _json(
+      'POST',
+      '/api/teachers/invites/verify',
+      body: {'code': code},
+    );
+  }
+
+  Future<Map<String, dynamic>> registerTeacher({
+    required String inviteToken,
+    required String fullName,
+    required String email,
+    required String password,
+    required String whatsappPhone,
+  }) {
+    return _json(
+      'POST',
+      '/api/teachers/register',
+      body: {
+        'invite_token': inviteToken,
+        'full_name': fullName,
+        'email': email,
+        'password': password,
+        'whatsapp_phone': whatsappPhone,
       },
     );
   }
@@ -235,6 +344,20 @@ class ApiClient {
       'GET',
       '/api/sync/pull',
       query: {'mosque_id': mosqueId},
+    );
+  }
+
+  Future<Map<String, dynamic>> changeMosqueAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _json(
+      'POST',
+      '/api/auth/change-password',
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
     );
   }
 }

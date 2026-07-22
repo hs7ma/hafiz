@@ -2,7 +2,6 @@
 .env
 .env.*
 !**/.env.example
-server/.env
 
 # Supabase CLI local
 supabase/.branches
@@ -37,7 +36,7 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
-.flutter-plugins
+.flutter-plugins/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -53,13 +52,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-# Node server runtime data
-/server/node_modules/
-/server/data/*.json
-/server/data/*.sqlite
-/server/data/*.sqlite-*
-!/server/data/.gitkeep
 
 # Local build dumps / release artifacts / scratch tools
 *.hprof

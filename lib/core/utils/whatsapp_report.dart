@@ -8,8 +8,8 @@ import '../../data/quran/quran_repository.dart';
 const _kTeacherWaPrefix = 'hafiz_teacher_wa_';
 const _kTeacherCcPrefix = 'hafiz_teacher_cc_';
 
-/// رمز الدولة الافتراضي لأرقام تبدأ بـ 0 (مثل 05xxxxxxxx).
-const defaultCountryCode = '966';
+/// رمز الدولة الافتراضي لأرقام تبدأ بـ 0 (مثل 07xxxxxxxx — العراق).
+const defaultCountryCode = '964';
 
 String attendanceLabelAr(AttendanceStatus status) => switch (status) {
       AttendanceStatus.present => 'حاضر',
@@ -28,6 +28,11 @@ String toWhatsAppDigits(
   if (d.startsWith('00')) d = d.substring(2);
   if (d.startsWith('0')) {
     d = '$countryCode${d.substring(1)}';
+  } else if (countryCode == '964' &&
+      d.length == 10 &&
+      d.startsWith('7') &&
+      !d.startsWith('964')) {
+    d = '964$d';
   }
   return d;
 }

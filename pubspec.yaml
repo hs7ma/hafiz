@@ -39,7 +39,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: assets/brand/ic_launcher.png
-  adaptive_icon_background: "#1F4D3A"
+  adaptive_icon_background: "#F7F1E6"
   adaptive_icon_foreground: assets/brand/ic_launcher_foreground.png
   adaptive_icon_foreground_inset: 16
 

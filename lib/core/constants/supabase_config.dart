@@ -30,9 +30,4 @@ class SupabaseConfig {
     final u = url.trim().replaceAll(RegExp(r'/$'), '');
     return '$u/functions/v1/serve-register';
   }
-
-  static String get platformPageUrl {
-    final u = url.trim().replaceAll(RegExp(r'/$'), '');
-    return '$u/functions/v1/serve-platform';
-  }
 }

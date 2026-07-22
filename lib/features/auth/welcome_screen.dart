@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
-import '../../core/constants/api_config.dart';
 import '../../core/constants/supabase_config.dart';
+import '../../data/remote/api_client.dart';
 import '../../data/repositories/demo_repository.dart';
 import '../../data/sync/sync_controller.dart';
+import 'teacher_register_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -114,7 +114,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 const SizedBox(height: 10),
                 _RoleTile(
                   title: 'المدرّس',
-                  subtitle: 'الاسم والرمز من إدارة المسجد',
+                  subtitle: 'رمز دعوة من إدارة المسجد، أو بريد وكلمة مرور بعد التسجيل',
                   icon: Icons.school_outlined,
                   onTap: () => setState(() => _role = _AuthRole.teacher),
                 ),
@@ -125,10 +125,20 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   icon: Icons.menu_book_outlined,
                   onTap: () => setState(() => _role = _AuthRole.student),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/register'),
+                  icon: const Icon(Icons.app_registration_outlined),
+                  label: const Text('تسجيل جامع جديد'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/register/status'),
+                  child: const Text('متابعة حالة طلب التسجيل'),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'تجريبي: مسجد النور · admin@demo.local / demo1234\n'
-                  'مدرّس: الشيخ إبراهيم / IB482917\n'
+                  'مدرّس: بعد دعوة من المشرف → تسجيل بالبريد\n'
                   'طالب: ahmad_yusuf / A7K3M',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -163,35 +173,73 @@ class _SyncStatusBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pending = ref.watch(demoRepositoryProvider).pendingSyncCount;
-    final configured = ApiConfig.isConfigured;
+    final repoPending = ref.watch(demoRepositoryProvider).pendingSyncCount;
+    final configured = SupabaseConfig.isConfigured;
     final sync = configured ? ref.watch(syncControllerProvider) : null;
+    final pending = sync?.pending ?? repoPending;
 
-    final text = !configured
-        ? 'وضع محلي أوفلاين — لا خادم مضبوط (API_BASE_URL)'
-        : sync!.phase == SyncPhase.syncing
-            ? sync.message
-            : pending > 0
-                ? 'بانتظار المزامنة: $pending عملية'
-                : 'متصل بالخادم — المزامنة جاهزة';
+    late final String text;
+    late final Color bg;
+    late final IconData icon;
+
+    if (!configured) {
+      text = 'وضع محلي أوفلاين — تُحفظ البيانات على الجهاز';
+      bg = AppColors.softGreen.withValues(alpha: 0.55);
+      icon = Icons.phone_android;
+    } else if (sync!.phase == SyncPhase.syncing) {
+      text = sync.message;
+      bg = AppColors.softGreen.withValues(alpha: 0.55);
+      icon = Icons.cloud_sync_outlined;
+    } else if (sync.needsLogin ||
+        (sync.phase == SyncPhase.error && sync.message.contains('تسجيل الدخول'))) {
+      text = sync.message.isNotEmpty
+          ? '${sync.message}\nاضغط بعد تسجيل الدخول للمزامنة'
+          : 'يلزم تسجيل الدخول لمزامنة $pending عملية — اضغط بعد الدخول';
+      bg = const Color(0xFFFFE0B2).withValues(alpha: 0.9);
+      icon = Icons.lock_outline;
+    } else if (sync.phase == SyncPhase.error) {
+      text = sync.message.isNotEmpty
+          ? '${sync.message}\nاضغط لإعادة المحاولة'
+          : 'تعذّرت المزامنة — اضغط لإعادة المحاولة';
+      bg = const Color(0xFFFFE0B2).withValues(alpha: 0.9);
+      icon = Icons.error_outline;
+    } else if (sync.phase == SyncPhase.offline) {
+      text = sync.message.isNotEmpty
+          ? sync.message
+          : (pending > 0
+              ? 'بدون اتصال — $pending عملية محفوظة محليًا'
+              : 'بدون إنترنت — التغييرات محفوظة محليًا');
+      bg = const Color(0xFFFFE0B2).withValues(alpha: 0.9);
+      icon = Icons.cloud_off_outlined;
+    } else if (pending > 0) {
+      text = sync.message.isNotEmpty && !sync.message.contains('لا طابور')
+          ? '${sync.message}\nاضغط لإعادة المحاولة'
+          : 'بانتظار المزامنة: $pending عملية — اضغط للإرسال الآن';
+      bg = const Color(0xFFFFE0B2).withValues(alpha: 0.9);
+      icon = Icons.cloud_upload_outlined;
+    } else {
+      text = sync.message.isNotEmpty && sync.message != 'لا طابور معلّق'
+          ? sync.message
+          : 'متصل بـ Supabase — المزامنة جاهزة';
+      bg = AppColors.softGreen.withValues(alpha: 0.55);
+      icon = Icons.cloud_done_outlined;
+    }
 
     return Material(
-      color: AppColors.softGreen.withValues(alpha: 0.55),
+      color: bg,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: configured
-            ? () => ref.read(syncControllerProvider.notifier).flush()
+            ? () => ref
+                .read(syncControllerProvider.notifier)
+                .flush(reason: 'manual', force: true)
             : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              Icon(
-                configured ? Icons.cloud_sync_outlined : Icons.phone_android,
-                size: 20,
-                color: AppColors.oliveDark,
-              ),
+              Icon(icon, size: 20, color: AppColors.oliveDark),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -202,6 +250,12 @@ class _SyncStatusBanner extends ConsumerWidget {
                       ),
                 ),
               ),
+              if (configured)
+                Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: AppColors.oliveDark.withValues(alpha: 0.7),
+                ),
             ],
           ),
         ),
@@ -277,14 +331,6 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
   bool _submitting = false;
   String? _error;
 
-  static String get _registerUrl {
-    if (SupabaseConfig.isConfigured) return SupabaseConfig.registerPageUrl;
-    if (ApiConfig.normalizedBase.isNotEmpty) {
-      return '${ApiConfig.normalizedBase}/register';
-    }
-    return '';
-  }
-
   @override
   void dispose() {
     _mosqueCtrl.dispose();
@@ -309,20 +355,6 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
       return;
     }
     context.go('/admin');
-  }
-
-  Future<void> _openRegisterPage() async {
-    final url = _registerUrl;
-    if (url.isEmpty) {
-      setState(() => _error = 'الخادم غير مضبوط — لا يمكن فتح صفحة التسجيل');
-      return;
-    }
-    final uri = Uri.parse(url);
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!mounted) return;
-    if (!ok) {
-      setState(() => _error = 'تعذّر فتح صفحة التسجيل');
-    }
   }
 
   @override
@@ -402,8 +434,13 @@ class _AdminAuthFormState extends ConsumerState<_AdminAuthForm> {
                 ),
               ),
               TextButton(
-                onPressed: _submitting ? null : _openRegisterPage,
-                child: const Text('مسجد جديد؟ أرسل طلب تسجيل'),
+                onPressed: _submitting ? null : () => context.push('/register'),
+                child: const Text('مسجد جديد؟ سجّل من داخل التطبيق'),
+              ),
+              TextButton(
+                onPressed:
+                    _submitting ? null : () => context.push('/register/status'),
+                child: const Text('متابعة حالة طلب التسجيل'),
               ),
             ],
           ),
@@ -421,27 +458,75 @@ class _TeacherAuthForm extends ConsumerStatefulWidget {
 }
 
 class _TeacherAuthFormState extends ConsumerState<_TeacherAuthForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
+  final _inviteFormKey = GlobalKey<FormState>();
+  final _loginFormKey = GlobalKey<FormState>();
   final _codeCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _modeLogin = false;
+  bool _obscure = true;
   bool _submitting = false;
   String? _error;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _codeCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _verifyInvite() async {
     setState(() => _error = null);
-    if (!_formKey.currentState!.validate()) return;
+    if (!_inviteFormKey.currentState!.validate()) return;
     setState(() => _submitting = true);
-    final err = await ref.read(authControllerProvider.notifier).loginTeacher(
-          fullName: _nameCtrl.text,
-          code: _codeCtrl.text,
-        );
+    try {
+      final api = ref.read(apiClientProvider);
+      final data = await api.verifyTeacherInvite(_codeCtrl.text);
+      final mosque = data['mosque'];
+      final token = data['invite_token']?.toString() ?? '';
+      if (token.isEmpty || mosque is! Map) {
+        setState(() {
+          _submitting = false;
+          _error = 'استجابة غير صالحة من الخادم';
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      context.push(
+        '/teacher/register',
+        extra: TeacherInviteData(
+          inviteToken: token,
+          mosqueId: mosque['id']?.toString() ?? '',
+          mosqueName: mosque['name']?.toString() ?? '',
+          message: data['message']?.toString() ?? '',
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _login() async {
+    setState(() => _error = null);
+    if (!_loginFormKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    final err =
+        await ref.read(authControllerProvider.notifier).loginTeacherEmail(
+              email: _emailCtrl.text,
+              password: _passwordCtrl.text,
+            );
     if (!mounted) return;
     setState(() => _submitting = false);
     if (err != null) {
@@ -454,60 +539,121 @@ class _TeacherAuthFormState extends ConsumerState<_TeacherAuthForm> {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'دخول المدرّس',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _modeLogin ? 'دخول المدرّس' : 'دعوة مدرّس جديد',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _modeLogin
+                ? 'استخدم البريد وكلمة المرور بعد إكمال التسجيل.'
+                : 'أدخل رمز الدعوة الذي أرسلته إدارة المسجد (صالح لدقيقتين).',
+            style: TextStyle(color: AppColors.ink.withValues(alpha: 0.65)),
+          ),
+          const SizedBox(height: 18),
+          if (!_modeLogin)
+            Form(
+              key: _inviteFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AuthTextField(
+                    controller: _codeCtrl,
+                    label: 'رمز الدعوة',
+                    hint: 'XXXX-XXXX-XXXX',
+                    textInputAction: TextInputAction.done,
+                    textCapitalization: TextCapitalization.characters,
+                    onEditingComplete: _submitting ? null : _verifyInvite,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'مطلوب';
+                      final n = v.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+                      if (n.length != 12) return 'الرمز 12 خانة';
+                      return null;
+                    },
                   ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'استخدم الاسم والرمز اللذين وفّرتهما إدارة المسجد.',
-              style: TextStyle(color: AppColors.ink.withValues(alpha: 0.65)),
-            ),
-            const SizedBox(height: 18),
-            AuthTextField(
-              controller: _nameCtrl,
-              label: 'اسم المدرّس',
-              textInputAction: TextInputAction.next,
-              textCapitalization: TextCapitalization.words,
-              autofillHints: const [AutofillHints.name],
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-            ),
-            const SizedBox(height: 14),
-            AuthTextField(
-              controller: _codeCtrl,
-              label: 'رمز الدخول',
-              hint: 'مثال: IB482917',
-              textInputAction: TextInputAction.done,
-              textCapitalization: TextCapitalization.characters,
-              onEditingComplete: _submitting ? null : _submit,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'مطلوب';
-                if (v.trim().length < 8) return 'الرمز غير مكتمل';
-                return null;
-              },
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: AppColors.danger)),
-            ],
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: const Text('دخول المدرّس'),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: AppColors.danger)),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _submitting ? null : _verifyInvite,
+                      child: Text(_submitting ? 'جارٍ التحقق…' : 'متابعة التسجيل'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => setState(() {
+                              _modeLogin = true;
+                              _error = null;
+                            }),
+                    child: const Text('لدي حساب؟ تسجيل الدخول'),
+                  ),
+                ],
+              ),
+            )
+          else
+            Form(
+              key: _loginFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AuthTextField(
+                    controller: _emailCtrl,
+                    label: 'البريد الإلكتروني',
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'مطلوب';
+                      if (!v.contains('@')) return 'بريد غير صالح';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  AuthTextField(
+                    controller: _passwordCtrl,
+                    label: 'كلمة المرور',
+                    obscureText: _obscure,
+                    onToggleObscure: () =>
+                        setState(() => _obscure = !_obscure),
+                    textInputAction: TextInputAction.done,
+                    onEditingComplete: _submitting ? null : _login,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'مطلوب' : null,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: AppColors.danger)),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _submitting ? null : _login,
+                      child: Text(_submitting ? 'جارٍ الدخول…' : 'دخول المدرّس'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => setState(() {
+                              _modeLogin = false;
+                              _error = null;
+                            }),
+                    child: const Text('لدي رمز دعوة'),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

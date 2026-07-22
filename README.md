@@ -1,7 +1,7 @@
 # حافظ
 
 تطبيق Flutter لتنظيم حضور وحفظ طلبة دورات تحفيظ القرآن في المساجد.
-يعمل **أوفلاين أولًا** ويُزامن مع **Supabase** (Edge Functions + Postgres).
+يعمل **أوفلاين أولًا** ويُزامن مع **Supabase** (Edge Functions + Postgres) فقط.
 
 ## التشغيل
 
@@ -11,12 +11,12 @@ flutter run
 ```
 
 الافتراضي يتصل بمشروع Supabase `qlqzdtphwmoohqgqftuv` عبر مفتاح anon المضمّن.
-لا حاجة لـ Railway.
 
-## الصفحات العامة
+## التسجيل وإدارة المنصة
 
-- تسجيل جامع: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-register
-- إدارة المنصة: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-platform
+- تسجيل الجامع: من داخل تطبيق حافظ (تحقق بريد ← بيانات ← موافقة)
+- متابعة حالة الطلب: من داخل تطبيق حافظ عبر البريد
+- إدارة المنصة: تطبيق منفصل في [`platform_app/`](platform_app/)
 
 ## بناء APK
 
@@ -37,9 +37,9 @@ flutter build apk --release
 ## هيكل المشروع
 
 ```
-lib/          تطبيق Flutter
-supabase/     Migrations + Edge Functions (المسار المعتمد)
-server/       Express القديم (مرجع فقط — يمكن إيقاف Railway)
+lib/           تطبيق حافظ (مساجد / مدرّسون / طلاب)
+platform_app/  تطبيق إدارة المنصة (موافقة الطلبات)
+supabase/      Migrations + Edge Functions
 ```
 
 التفاصيل: [`supabase/README.md`](supabase/README.md)

@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/constants/api_config.dart';
+import '../../core/constants/supabase_config.dart';
 import '../../core/utils/code_generators.dart';
+import '../../core/utils/id_utils.dart';
 import '../local/local_store.dart';
 import '../models/models.dart';
 import '../quran/quran_repository.dart';
@@ -23,6 +24,18 @@ final quranReadyProvider = FutureProvider<void>((ref) async {
     ref.watch(tafsirMuyassarProvider).load(),
   ]);
 });
+
+enum SyncFailureKind { offline, auth, api, unknown }
+
+class SyncException implements Exception {
+  SyncException(this.message, {this.kind = SyncFailureKind.unknown});
+
+  final String message;
+  final SyncFailureKind kind;
+
+  @override
+  String toString() => message;
+}
 
 class DemoHafizRepository {
   DemoHafizRepository({
@@ -85,7 +98,7 @@ class DemoHafizRepository {
   Future<void> _afterWrite({SyncOp? op}) async {
     if (op != null) _syncQueue.add(op);
     await persistLocal();
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         await flushSyncQueue();
       } catch (_) {
@@ -117,44 +130,130 @@ class DemoHafizRepository {
     currentUser = user;
     currentMosque = mosque;
     await persistLocal();
+    // بعد تسجيل الدخول: ادفع الطابور ثم اسحب أحدث لقطة
+    try {
+      await flushSyncQueue();
+    } catch (_) {}
     try {
       await pullFromServer(mosque.id);
     } catch (_) {}
   }
 
+  bool _looksLikeNetworkFailure(Object e) {
+    final s = e.toString().toLowerCase();
+    return s.contains('socket') ||
+        s.contains('timeout') ||
+        s.contains('timed out') ||
+        s.contains('network') ||
+        s.contains('connection') ||
+        s.contains('failed host lookup') ||
+        s.contains('clientexception') ||
+        s.contains('handshake');
+  }
+
   Future<String> flushSyncQueue() async {
-    if (!ApiConfig.isConfigured) return 'API غير مضبوط';
-    if (_syncQueue.isEmpty) return 'لا عمليات معلّقة';
-    final online = await _api.healthCheck();
-    if (!online) throw Exception('الخادم غير متاح حاليًا');
+    if (!SupabaseConfig.isConfigured) return 'Supabase غير مضبوط';
+    if (_syncQueue.isEmpty) return 'لا عمليات معلّقة — البيانات محفوظة محليًا';
 
-    final batch = List<SyncOp>.from(_syncQueue);
-    final res = await _api.pushOps(batch);
-    final errors = (res['errors'] as List?) ?? const [];
-    if (errors.isEmpty) {
-      _syncQueue.clear();
-    } else {
-      final failedIds = errors
-          .whereType<Map>()
-          .map((e) => e['id']?.toString())
-          .whereType<String>()
-          .toSet();
-      _syncQueue.removeWhere((op) => !failedIds.contains(op.id));
-    }
-    await persistLocal();
-
-    // سحب لقطة المسجد إن وُجد مستخدم
-    final mosqueId = currentUser?.mosqueId ?? currentMosque?.id;
-    if (mosqueId != null && mosqueId.isNotEmpty) {
-      try {
-        await pullFromServer(mosqueId);
-      } catch (_) {}
+    final pending = _syncQueue.length;
+    if (!_api.hasHafizToken) {
+      await persistLocal();
+      throw SyncException(
+        'يلزم تسجيل الدخول لإرسال $pending عملية معلّقة',
+        kind: SyncFailureKind.auth,
+      );
     }
 
-    if (errors.isNotEmpty) {
-      return 'مزامنة جزئية — ${errors.length} أخطاء';
+    try {
+      // حوّل معرفات تجريبية مثل stu-1 إلى UUID قبل الإرسال
+      final batch = _syncQueue.map((op) {
+        return SyncOp(
+          id: op.id,
+          type: op.type,
+          payload: sanitizeSyncPayload(Map<String, dynamic>.from(op.payload)),
+          createdAt: op.createdAt,
+        );
+      }).toList();
+      final res = await _api.pushOps(batch);
+      final errors = (res['errors'] as List?) ?? const [];
+      if (errors.isEmpty) {
+        _syncQueue.clear();
+      } else {
+        final failedIds = errors
+            .whereType<Map>()
+            .map((e) => e['id']?.toString())
+            .whereType<String>()
+            .toSet();
+        _syncQueue.removeWhere((op) => !failedIds.contains(op.id));
+      }
+      await persistLocal();
+
+      // سحب لقطة المسجد إن وُجد مستخدم
+      final mosqueId = currentUser?.mosqueId ?? currentMosque?.id;
+      if (mosqueId != null && mosqueId.isNotEmpty) {
+        try {
+          await pullFromServer(mosqueId);
+        } catch (_) {}
+      }
+
+      if (errors.isNotEmpty) {
+        String? detail;
+        for (final e in errors.whereType<Map>()) {
+          final raw = e['error'];
+          String err = '';
+          if (raw is String) {
+            err = raw.trim();
+          } else if (raw is Map) {
+            err = (raw['message'] ?? raw['error'] ?? raw).toString().trim();
+          } else if (raw != null) {
+            err = raw.toString().trim();
+          }
+          if (err.isNotEmpty && err != '[object Object]') {
+            detail = err;
+            break;
+          }
+        }
+        if (detail != null) {
+          return 'مزامنة جزئية — ${errors.length} أخطاء: $detail';
+        }
+        return 'مزامنة جزئية — ${errors.length} أخطاء (الباقي محفوظ محليًا)';
+      }
+      return 'تمت المزامنة مع Supabase بنجاح';
+    } on SyncException {
+      rethrow;
+    } on ApiException catch (e) {
+      await persistLocal();
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        throw SyncException(
+          'انتهت الجلسة — سجّل الدخول لإرسال $pending عملية معلّقة',
+          kind: SyncFailureKind.auth,
+        );
+      }
+      throw SyncException(
+        'خطأ من الخادم أثناء المزامنة: ${e.message}',
+        kind: SyncFailureKind.api,
+      );
+    } catch (e) {
+      await persistLocal();
+      if (_looksLikeNetworkFailure(e)) {
+        // تأكيد الوصول: إن فشل /health أيضًا نعرض رسالة الشبكة
+        final reachable = await _api.healthCheck();
+        if (!reachable) {
+          throw SyncException(
+            'تعذّر الوصول للخادم — تحقق من الإنترنت ($pending عملية محفوظة محليًا)',
+            kind: SyncFailureKind.offline,
+          );
+        }
+        throw SyncException(
+          'تعذّرت المزامنة رغم الاتصال — أعد المحاولة ($pending عملية محفوظة)',
+          kind: SyncFailureKind.api,
+        );
+      }
+      throw SyncException(
+        'تعذّرت المزامنة — البيانات ما زالت محفوظة محليًا',
+        kind: SyncFailureKind.unknown,
+      );
     }
-    return 'تمت المزامنة بنجاح';
   }
 
   Future<void> pullFromServer(String mosqueId) async {
@@ -521,15 +620,22 @@ class DemoHafizRepository {
   }
 
   void _seed() {
+    final mosqueId = ensureUuid('mosque-1');
+    final adminId = ensureUuid('admin-1');
+    final teacherId = ensureUuid('teacher-1');
+    final stu1 = ensureUuid('stu-1');
+    final stu2 = ensureUuid('stu-2');
+    final hw1 = ensureUuid('hw-1');
+
     final mosque = Mosque(
-      id: 'mosque-1',
+      id: mosqueId,
       name: 'مسجد النور',
       createdAt: DateTime.now(),
     );
     mosques.add(mosque);
 
     _admins['admin@demo.local'] = _AdminCreds(
-      id: 'admin-1',
+      id: adminId,
       fullName: 'إدارة مسجد النور',
       email: 'admin@demo.local',
       password: 'demo1234',
@@ -537,51 +643,51 @@ class DemoHafizRepository {
     );
 
     teachers.add(
-      const TeacherAccount(
-        id: 'teacher-1',
+      TeacherAccount(
+        id: teacherId,
         fullName: 'الشيخ إبراهيم',
         englishName: 'Ibrahim',
         englishPrefix: 'IB',
         loginCode: 'IB482917',
-        mosqueId: 'mosque-1',
+        mosqueId: mosqueId,
       ),
     );
 
     students.addAll([
-      const StudentProfile(
-        id: 'stu-1',
+      StudentProfile(
+        id: stu1,
         fullName: 'أحمد يوسف',
         gradeLevel: 'الصف الخامس',
         age: 11,
         parentPhone: '0511111111',
-        mosqueId: 'mosque-1',
-        teacherId: 'teacher-1',
+        mosqueId: mosqueId,
+        teacherId: teacherId,
         loginUsername: 'ahmad_yusuf',
         loginCode: 'A7K3M',
       ),
-      const StudentProfile(
-        id: 'stu-2',
+      StudentProfile(
+        id: stu2,
         fullName: 'محمد خالد',
         gradeLevel: 'الصف السادس',
         age: 12,
         parentPhone: '0522222222',
-        mosqueId: 'mosque-1',
-        teacherId: 'teacher-1',
+        mosqueId: mosqueId,
+        teacherId: teacherId,
         loginUsername: 'mohammad_khaled',
         loginCode: 'B4N8PQ',
       ),
     ]);
 
-    homeworkByStudent['stu-1'] = StudentHomework(
-      id: 'hw-1',
-      studentId: 'stu-1',
+    homeworkByStudent[stu1] = StudentHomework(
+      id: hw1,
+      studentId: stu1,
       surahNumber: 2,
       fromAyah: 1,
       toAyah: 5,
       assignedAt: DateTime.now(),
     );
-    lastMemorizationByStudent['stu-1'] = MemorizationLevel.good;
-    lastMemorizationByStudent['stu-2'] = MemorizationLevel.average;
+    lastMemorizationByStudent[stu1] = MemorizationLevel.good;
+    lastMemorizationByStudent[stu2] = MemorizationLevel.average;
   }
 
   Mosque? mosqueById(String id) {
@@ -605,7 +711,7 @@ class DemoHafizRepository {
     if (!_looksLikeEmail(mail)) return 'البريد غير صالح';
     if (password.length < 6) return 'كلمة المرور 6 أحرف على الأقل';
 
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.registerMosque(
           mosqueName: name,
@@ -688,7 +794,7 @@ class DemoHafizRepository {
     final name = mosqueName.trim();
     final mail = email.trim().toLowerCase();
 
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.loginMosqueAdmin(
           mosqueName: name,
@@ -725,12 +831,40 @@ class DemoHafizRepository {
         );
         return null;
       } on ApiException catch (e) {
-        return e.message;
+        // خطأ مصادقة حقيقي — لا نستخدم الكاش المحلي
+        if (e.statusCode == 401 || e.statusCode == 403) return e.message;
+        // شبكة/خادم: نحاول الدخول من البيانات المحلية المحفوظة
+        final offline = await _tryLocalMosqueAdminLogin(
+          name: name,
+          mail: mail,
+          password: password,
+        );
+        if (offline == null) return null;
+        return '${e.message} — وجُرّب الدخول المحلي: $offline';
       } catch (_) {
-        return 'تعذّر الاتصال بالخادم';
+        final offline = await _tryLocalMosqueAdminLogin(
+          name: name,
+          mail: mail,
+          password: password,
+        );
+        if (offline == null) return null;
+        return 'تعذّر الاتصال بالخادم — ولا توجد جلسة محلية مطابقة';
       }
     }
 
+    return _tryLocalMosqueAdminLogin(
+      name: name,
+      mail: mail,
+      password: password,
+    );
+  }
+
+  /// دخول محلي من اللقطة المحفوظة على الجهاز (أوفلاين).
+  Future<String?> _tryLocalMosqueAdminLogin({
+    required String name,
+    required String mail,
+    required String password,
+  }) async {
     final admin = _admins[mail];
     if (admin == null || admin.password != password) {
       return 'بيانات الدخول غير صحيحة';
@@ -751,6 +885,50 @@ class DemoHafizRepository {
     return null;
   }
 
+  Future<String?> changeMosqueAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = currentUser;
+    if (user == null || user.role != UserRole.mosqueAdmin) {
+      return 'يلزم تسجيل دخول إدارة الجامع';
+    }
+    if (newPassword.trim().length < 6) {
+      return 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل';
+    }
+
+    if (SupabaseConfig.isConfigured) {
+      try {
+        await _api.changeMosqueAdminPassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+      } on ApiException catch (e) {
+        return e.message;
+      } catch (_) {
+        return 'تعذّر الاتصال بالخادم لتغيير كلمة المرور';
+      }
+    } else {
+      final admin = _admins[user.email];
+      if (admin == null || admin.password != currentPassword) {
+        return 'كلمة المرور الحالية غير صحيحة';
+      }
+    }
+
+    final mail = user.email;
+    final existing = _admins[mail];
+    if (existing != null) {
+      _admins[mail] = _AdminCreds(
+        id: existing.id,
+        fullName: existing.fullName,
+        email: existing.email,
+        password: newPassword,
+        mosqueId: existing.mosqueId,
+      );
+    }
+    await persistLocal();
+    return null;
+  }
   Future<String?> loginTeacher({
     required String fullName,
     required String code,
@@ -758,7 +936,7 @@ class DemoHafizRepository {
     final name = fullName.trim();
     final loginCode = code.trim().toUpperCase();
 
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.loginTeacher(
           fullName: name,
@@ -818,6 +996,120 @@ class DemoHafizRepository {
     return null;
   }
 
+  Future<String?> loginTeacherEmail({
+    required String email,
+    required String password,
+  }) async {
+    final mail = email.trim().toLowerCase();
+    if (!SupabaseConfig.isConfigured) {
+      return 'يلزم الاتصال بالخادم لدخول المدرّس بالبريد';
+    }
+    try {
+      final data = await _api.loginTeacherEmail(email: mail, password: password);
+      final teacherMap = Map<String, dynamic>.from(data['teacher'] as Map);
+      final mosqueMap = Map<String, dynamic>.from(data['mosque'] as Map);
+      final mosque = Mosque(
+        id: mosqueMap['id'].toString(),
+        name: mosqueMap['name'].toString(),
+        createdAt: DateTime.tryParse(
+              mosqueMap['created_at']?.toString() ?? '',
+            ) ??
+            DateTime.now(),
+      );
+      final teacher = TeacherAccount(
+        id: teacherMap['id'].toString(),
+        fullName: teacherMap['full_name'].toString(),
+        englishName: teacherMap['english_name']?.toString() ?? '',
+        englishPrefix: teacherMap['english_prefix']?.toString() ?? 'XX',
+        loginCode: teacherMap['login_code']?.toString() ?? '',
+        mosqueId: mosque.id,
+      );
+      final user = AppUser(
+        id: teacher.id,
+        fullName: teacher.fullName,
+        role: UserRole.teacher,
+        mosqueId: mosque.id,
+        email: teacherMap['email']?.toString() ?? mail,
+      );
+      await _applyAuthSession(user: user, mosque: mosque, teacher: teacher);
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'تعذّر الاتصال بالخادم';
+    }
+  }
+
+  Future<String?> registerTeacher({
+    required String inviteToken,
+    required String fullName,
+    required String email,
+    required String password,
+    required String whatsappPhone,
+  }) async {
+    if (!SupabaseConfig.isConfigured) {
+      return 'يلزم الاتصال بالخادم لتسجيل المدرّس';
+    }
+    try {
+      final data = await _api.registerTeacher(
+        inviteToken: inviteToken,
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        password: password,
+        whatsappPhone: whatsappPhone,
+      );
+      final teacherMap = Map<String, dynamic>.from(data['teacher'] as Map);
+      final mosqueMap = Map<String, dynamic>.from(data['mosque'] as Map);
+      final mosque = Mosque(
+        id: mosqueMap['id'].toString(),
+        name: mosqueMap['name'].toString(),
+        createdAt: DateTime.tryParse(
+              mosqueMap['created_at']?.toString() ?? '',
+            ) ??
+            DateTime.now(),
+      );
+      final teacher = TeacherAccount(
+        id: teacherMap['id'].toString(),
+        fullName: teacherMap['full_name'].toString(),
+        englishName: teacherMap['english_name']?.toString() ?? '',
+        englishPrefix: teacherMap['english_prefix']?.toString() ?? 'XX',
+        loginCode: teacherMap['login_code']?.toString() ?? '',
+        mosqueId: mosque.id,
+      );
+      final user = AppUser(
+        id: teacher.id,
+        fullName: teacher.fullName,
+        role: UserRole.teacher,
+        mosqueId: mosque.id,
+        email: teacherMap['email']?.toString() ?? email.trim().toLowerCase(),
+      );
+      await _applyAuthSession(user: user, mosque: mosque, teacher: teacher);
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'تعذّر الاتصال بالخادم';
+    }
+  }
+
+  Future<({Map<String, dynamic>? invite, String? error})> createTeacherInvite() async {
+    if (!SupabaseConfig.isConfigured) {
+      return (invite: null, error: 'يلزم الاتصال بالخادم لإنشاء دعوة');
+    }
+    try {
+      final data = await _api.createTeacherInvite();
+      final invite = data['invite'];
+      if (invite is Map) {
+        return (invite: Map<String, dynamic>.from(invite), error: null);
+      }
+      return (invite: null, error: 'استجابة غير صالحة');
+    } on ApiException catch (e) {
+      return (invite: null, error: e.message);
+    } catch (_) {
+      return (invite: null, error: 'تعذّر الاتصال بالخادم');
+    }
+  }
+
   Future<String?> loginStudent({
     required String username,
     required String code,
@@ -825,7 +1117,7 @@ class DemoHafizRepository {
     final userName = username.trim();
     final loginCode = code.trim().toUpperCase();
 
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.loginStudent(
           username: userName,
@@ -1078,7 +1370,7 @@ class DemoHafizRepository {
       return (student: _emptyStudent(), error: 'رقم ولي الأمر غير صالح');
     }
 
-    if (ApiConfig.isConfigured) {
+    if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.createStudent(
           mosqueId: user.mosqueId,
@@ -1538,6 +1830,16 @@ class AuthController extends Notifier<AppUser?> {
     return err;
   }
 
+  Future<String?> changeMosqueAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    return ref.read(demoRepositoryProvider).changeMosqueAdminPassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+  }
+
   Future<String?> loginTeacher({
     required String fullName,
     required String code,
@@ -1545,6 +1847,48 @@ class AuthController extends Notifier<AppUser?> {
     final err = await ref.read(demoRepositoryProvider).loginTeacher(
           fullName: fullName,
           code: code,
+        );
+    if (err == null) {
+      state = ref.read(demoRepositoryProvider).currentUser;
+      ref.invalidate(studentsControllerProvider);
+      ref.invalidate(sessionControllerProvider);
+      ref.invalidate(attendanceControllerProvider);
+      ref.invalidate(homeworkControllerProvider);
+    }
+    return err;
+  }
+
+  Future<String?> loginTeacherEmail({
+    required String email,
+    required String password,
+  }) async {
+    final err = await ref.read(demoRepositoryProvider).loginTeacherEmail(
+          email: email,
+          password: password,
+        );
+    if (err == null) {
+      state = ref.read(demoRepositoryProvider).currentUser;
+      ref.invalidate(studentsControllerProvider);
+      ref.invalidate(sessionControllerProvider);
+      ref.invalidate(attendanceControllerProvider);
+      ref.invalidate(homeworkControllerProvider);
+    }
+    return err;
+  }
+
+  Future<String?> registerTeacher({
+    required String inviteToken,
+    required String fullName,
+    required String email,
+    required String password,
+    required String whatsappPhone,
+  }) async {
+    final err = await ref.read(demoRepositoryProvider).registerTeacher(
+          inviteToken: inviteToken,
+          fullName: fullName,
+          email: email,
+          password: password,
+          whatsappPhone: whatsappPhone,
         );
     if (err == null) {
       state = ref.read(demoRepositoryProvider).currentUser;
@@ -1676,6 +2020,10 @@ class TeachersController extends Notifier<List<TeacherAccount>> {
   }
 
   void refresh() => state = build();
+
+  Future<({Map<String, dynamic>? invite, String? error})> createInvite() async {
+    return ref.read(demoRepositoryProvider).createTeacherInvite();
+  }
 
   ({TeacherAccount? teacher, String? error}) add({
     required String fullName,

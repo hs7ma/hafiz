@@ -1,15 +1,17 @@
 # خلفية حافظ على Supabase
 
-هذا المجلد هو المسار المعتمد للخلفية بعد الهجرة من Express/Railway.
+الخلفية الوحيدة للتطبيق: Postgres + Edge Functions على Supabase.
 
 ## المكوّنات
 
 | جزء | الدور |
 | --- | --- |
 | `migrations/` | مخطط الجداول + RLS + دوال `private` و RPC العامة |
-| `functions/hafiz-api` | بديل مسارات Express (تسجيل، موافقة، دخول، طلاب، مزامنة) |
-| `functions/serve-register` | صفحة `/register` كـ HTML من Edge |
-| `functions/serve-platform` | صفحة `/platform` كـ HTML من Edge |
+| `functions/hafiz-api` | API (تسجيل من التطبيق، موافقة، دخول، طلاب، مزامنة) |
+| `functions/serve-register` | رسالة JSON: التسجيل من داخل التطبيق |
+| `functions/serve-platform` | رسالة JSON: استخدم تطبيق `platform_app` |
+
+> ملاحظة: Supabase لا يعرض HTML على نطاقه. تسجيل الجوامع داخل تطبيق حافظ، وإدارة المنصة في تطبيق `platform_app` المنفصل.
 
 ## الأسرار (Edge Function secrets)
 
@@ -22,8 +24,6 @@ npx supabase secrets set PLATFORM_ADMIN_PASSWORD="your-long-password"
 تُحقن تلقائيًا في الدوال: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## تطبيق المخطط
-
-بعد مصادقة Supabase MCP أو ربط CLI:
 
 ```bash
 npx supabase link --project-ref qlqzdtphwmoohqgqftuv
@@ -39,9 +39,8 @@ npx supabase functions deploy serve-register --no-verify-jwt
 npx supabase functions deploy serve-platform --no-verify-jwt
 ```
 
-## عناوين الصفحات بعد النشر
+## عناوين بعد النشر
 
-- تسجيل جامع: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-register
 - إدارة المنصة: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/serve-platform
 - API: https://qlqzdtphwmoohqgqftuv.supabase.co/functions/v1/hafiz-api/
 
@@ -59,10 +58,3 @@ flutter run
 - صلاحيات المسؤول في `app_metadata` عند إنشاء مستخدم Auth (ليست `user_metadata`).
 - دوال مساعدة حسّاسة في مخطط `private`.
 - سياسات `anon` الواسعة القديمة تُحذف في الهجرة.
-
-## إيقاف Railway
-
-Edge Functions منشورة ومُختبرة. العملاء يستخدمون Supabase افتراضيًا.
-
-1. أوقف خدمة Railway عند التأكد من التطبيق.
-2. أبقِ `server/` كمرجع تاريخي أو احذفه لاحقًا.
