@@ -543,6 +543,27 @@ a {
   background: var(--gold);
 }
 
+.legal {
+  max-width: 42rem;
+  margin-inline: auto;
+  text-align: start;
+}
+
+.legal h2 {
+  margin-top: 1.75rem;
+  font-size: 1.25rem;
+  color: var(--olive);
+}
+
+.legal p,
+.legal li {
+  color: color-mix(in srgb, var(--ink) 82%, var(--olive));
+}
+
+.legal ul {
+  padding-inline-start: 1.25rem;
+}
+
 .footer {
   padding: 1.75rem 1.25rem 2.25rem;
   text-align: center;
