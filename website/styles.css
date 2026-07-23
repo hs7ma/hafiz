@@ -61,7 +61,8 @@ a {
 /* —— Hero: light parchment composition matching logo.svg —— */
 .hero {
   position: relative;
-  min-height: 100svh;
+  /* Leave a peek of the next section so the page doesn't feel empty */
+  min-height: 92svh;
   display: grid;
   place-items: center;
   overflow: clip;
@@ -151,6 +152,39 @@ a {
   gap: 0.75rem;
   justify-content: center;
   margin-top: 1.85rem;
+}
+
+.hero__scroll {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 2.25rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink) 55%, var(--olive));
+  text-decoration: none;
+}
+
+.hero__scroll span {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
+  animation: scroll-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes scroll-nudge {
+  0%,
+  100% {
+    translate: 0 0;
+    opacity: 0.45;
+  }
+  50% {
+    translate: 0 0.35rem;
+    opacity: 1;
+  }
 }
 
 .btn {
@@ -588,7 +622,8 @@ a {
   .hero__atmosphere,
   .hero__blob,
   .feature-card,
-  .btn--pulse {
+  .btn--pulse,
+  .hero__scroll span {
     animation: none;
   }
 

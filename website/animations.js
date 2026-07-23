@@ -167,20 +167,19 @@
         gsap.registerPlugin(ScrollTrigger);
       }
 
-      // Do NOT split Arabic into per-letter spans — that breaks glyph joining.
-
+      // Keep content visible — animate only movement, never opacity:0
       gsap.set(
         [".hero__mark", ".hero__brand", ".hero__lead", ".hero__actions .btn"],
-        { opacity: 0, y: 20 }
+        { y: 20 }
       );
 
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.to(".hero__mark", { opacity: 1, y: 0, duration: 0.95 })
-        .to(".hero__brand", { opacity: 1, y: 0, duration: 0.7 }, "-=0.55")
-        .to(".hero__lead", { opacity: 1, y: 0, duration: 0.65 }, "-=0.4")
+      tl.to(".hero__mark", { y: 0, duration: 0.95 })
+        .to(".hero__brand", { y: 0, duration: 0.7 }, "-=0.55")
+        .to(".hero__lead", { y: 0, duration: 0.65 }, "-=0.4")
         .to(
           ".hero__actions .btn",
-          { opacity: 1, y: 0, stagger: 0.1, duration: 0.55 },
+          { y: 0, stagger: 0.1, duration: 0.55 },
           "-=0.35"
         );
 
@@ -204,10 +203,10 @@
             ".showcase-hero__art, .feature-card__art"
           );
 
-          if (heading) gsap.set(heading, { opacity: 0, y: 18 });
-          if (lead) gsap.set(lead, { opacity: 0, y: 14 });
-          if (children.length) gsap.set(children, { opacity: 0, y: 18 });
-          if (arts.length) gsap.set(arts, { opacity: 0, scale: 0.96 });
+          if (heading) gsap.set(heading, { y: 18 });
+          if (lead) gsap.set(lead, { y: 14 });
+          if (children.length) gsap.set(children, { y: 18 });
+          if (arts.length) gsap.set(arts, { scale: 0.96 });
 
           const tl2 = gsap.timeline({
             scrollTrigger: {
@@ -219,22 +218,22 @@
           });
 
           if (heading) {
-            tl2.to(heading, { opacity: 1, y: 0, duration: 0.65 });
+            tl2.to(heading, { y: 0, duration: 0.65 });
           }
           if (lead) {
-            tl2.to(lead, { opacity: 1, y: 0, duration: 0.55 }, "-=0.4");
+            tl2.to(lead, { y: 0, duration: 0.55 }, "-=0.4");
           }
           if (arts.length) {
             tl2.to(
               arts,
-              { opacity: 1, scale: 1, duration: 0.7, stagger: 0.08 },
+              { scale: 1, duration: 0.7, stagger: 0.08 },
               "-=0.35"
             );
           }
           if (children.length) {
             tl2.to(
               children,
-              { opacity: 1, y: 0, stagger: 0.09, duration: 0.6 },
+              { y: 0, stagger: 0.09, duration: 0.6 },
               "-=0.35"
             );
           }
@@ -261,9 +260,8 @@
         if (footer) {
           gsap.fromTo(
             footer,
-            { opacity: 0, y: 10 },
+            { y: 10 },
             {
-              opacity: 1,
               y: 0,
               duration: 0.6,
               ease: "power2.out",
