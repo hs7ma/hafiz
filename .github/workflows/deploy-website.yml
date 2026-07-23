@@ -1,0 +1,55 @@
+name: Deploy website to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/deploy-website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare static site
+        run: |
+          set -euo pipefail
+          mkdir -p _site/illustrations _site/privacy _site/terms \
+            _site/privacy-policy _site/terms-of-service
+          cp website/index.html website/styles.css website/animations.js \
+            website/robots.txt website/logo.svg website/logo-on-dark.svg \
+            website/og-image.png website/og-image.jpg website/hafiz.apk _site/
+          cp website/illustrations/*.svg _site/illustrations/
+          cp website/privacy.html _site/privacy/index.html
+          cp website/terms.html _site/terms/index.html
+          printf '%s\n' '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/privacy"><link rel="canonical" href="https://hafizapp.xyz/privacy"><title>Redirecting…</title>' > _site/privacy-policy/index.html
+          printf '%s\n' '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/terms"><link rel="canonical" href="https://hafizapp.xyz/terms"><title>Redirecting…</title>' > _site/terms-of-service/index.html
+          printf '%s\n' 'hafizapp.xyz' > _site/CNAME
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
