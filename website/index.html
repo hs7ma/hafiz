@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="حافظ — لتنظيم وإدارة حلقات حفظ القرآن الكريم في المساجد."
+      content="حافظ — حلقة الوصل بين المسجد والمدرّس والطالب: تسجيل حضور ومستويات الحفظ بسهولة، ومصحف مفسَّر مع تشغيل القراءة بأكثر من قارئ لتسهيل الحفظ."
     />
-    <title>حافظ</title>
+    <title>حافظ — حلقات تحفيظ المساجد</title>
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,16 +16,36 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"
+    ></script>
+    <script defer src="animations.js"></script>
+    <noscript>
+      <style>
+        .scroll-progress,
+        .hero__particles {
+          display: none !important;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <header class="hero">
       <div class="hero__atmosphere" aria-hidden="true"></div>
-      <div class="hero__pattern" aria-hidden="true"></div>
+      <div class="hero__blob hero__blob--olive" aria-hidden="true"></div>
+      <div class="hero__blob hero__blob--gold" aria-hidden="true"></div>
+      <canvas class="hero__particles" aria-hidden="true"></canvas>
 
       <div class="hero__content">
         <img
           class="hero__mark"
-          src="logo-on-dark.svg"
+          src="logo.svg"
           width="360"
           height="196"
           alt="حافظ"
@@ -33,53 +53,168 @@
         />
         <h1 class="hero__brand">حافظ</h1>
         <p class="hero__lead">
-          لتنظيم وإدارة حلقات حفظ القرآن الكريم في المساجد
+          حلقة الوصل بين المسجد والمدرّس والطالب في حلقات تحفيظ القرآن
         </p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="hafiz.apk" download>تحميل التطبيق</a>
-          <a class="btn btn--ghost" href="#about">تعرّف أكثر</a>
+          <a class="btn btn--ghost" href="#how">تعرّف أكثر</a>
         </div>
       </div>
     </header>
 
     <main>
-      <section id="about" class="section section--about">
-        <h2>للمساجد والمدرّسين والطلاب</h2>
-        <p>
-          سجّل جامعك، أدِر الحلقات، تابع الحضور والواجبات، وزامن البيانات عند توفر
-          الإنترنت.
+      <div class="divider divider--how" aria-hidden="true">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
+          <path
+            d="M0,30 C200,60 400,0 600,30 C800,60 1000,0 1200,30 L1200,60 L0,60 Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <section id="how" class="section section--how" data-reveal>
+        <h2>كيف يعمل</h2>
+        <p class="section__lead">
+          ثلاث خطوات بسيطة لتشغيل حلقة التحفيظ في مسجدك.
         </p>
+        <ol class="steps">
+          <li class="steps__item" data-reveal-child>
+            <span class="steps__num" aria-hidden="true">1</span>
+            <div>
+              <h3>سجّل جامعك</h3>
+              <p>قدّم طلب التسجيل من التطبيق وانتظر موافقة المنصة.</p>
+            </div>
+          </li>
+          <li class="steps__item" data-reveal-child>
+            <span class="steps__num" aria-hidden="true">2</span>
+            <div>
+              <h3>ادعُ المدرّسين</h3>
+              <p>أنشئ رموز دعوة قصيرة العمر وشاركها مع مدرّسي الحلقات.</p>
+            </div>
+          </li>
+          <li class="steps__item" data-reveal-child>
+            <span class="steps__num" aria-hidden="true">3</span>
+            <div>
+              <h3>تابع الحضور والحفظ</h3>
+              <p>سجّل الحضور والواجبات ومستويات الحفظ يومًا بيوم.</p>
+            </div>
+          </li>
+        </ol>
       </section>
 
-      <section class="section section--download">
+      <div class="divider divider--audience" aria-hidden="true">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
+          <path
+            d="M0,30 C300,0 500,60 700,30 C900,0 1100,60 1200,30 L1200,60 L0,60 Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <section id="audience" class="section section--audience" data-reveal>
+        <h2>حلقة وصل واحدة</h2>
+        <p class="section__lead">
+          المسجد والمدرّس والطالب في منظومة واحدة — كل دور يرى ما يحتاجه بلا تعقيد.
+        </p>
+        <figure class="showcase-hero">
+          <object
+            class="showcase-hero__art"
+            type="image/svg+xml"
+            data="illustrations/link.svg"
+            aria-label="رسم يوضح ربط المسجد والمدرّس والطالب"
+          ></object>
+        </figure>
+        <ul class="roles">
+          <li class="roles__item" data-reveal-child>
+            <h3>إدارة الجامع</h3>
+            <p>دعوة المدرّسين، متابعة الحلقات، ورؤية مستويات الطلبة في مكان واحد.</p>
+          </li>
+          <li class="roles__item" data-reveal-child>
+            <h3>المدرّس</h3>
+            <p>تسجيل حضور الطلبة بسهولة، تقييم الحفظ، الواجبات، والتقارير لأولياء الأمور.</p>
+          </li>
+          <li class="roles__item" data-reveal-child>
+            <h3>الطالب</h3>
+            <p>دخول بسيط لمتابعة واجبه، مع مصحف للقراءة والاستماع والتفسير.</p>
+          </li>
+        </ul>
+      </section>
+
+      <div class="divider divider--features" aria-hidden="true">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
+          <path
+            d="M0,30 C150,50 350,10 600,30 C850,50 1050,10 1200,30 L1200,60 L0,60 Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <section id="features" class="section section--features" data-reveal>
+        <h2>أهم الميزات</h2>
+        <p class="section__lead">
+          ما يميّز حافظ في الحلقة اليومية والحفظ مع المصحف.
+        </p>
+        <div class="feature-grid">
+          <article class="feature-card" data-reveal-child>
+            <object
+              class="feature-card__art"
+              type="image/svg+xml"
+              data="illustrations/attendance.svg"
+              aria-label="رسم حضور الطلبة ومستويات الحفظ"
+            ></object>
+            <h3>حضور ومستويات الحفظ</h3>
+            <p>
+              سجّل الحضور والغياب بسهولة، وقيّم مستوى حفظ كل طالب في الجلسة نفسها.
+            </p>
+          </article>
+          <article class="feature-card" data-reveal-child>
+            <object
+              class="feature-card__art"
+              type="image/svg+xml"
+              data="illustrations/mushaf.svg"
+              aria-label="رسم المصحف المفسّر وتشغيل القراءة"
+            ></object>
+            <h3>مصحف مفسَّر وقرّاء متعددون</h3>
+            <p>
+              اقرأ الآيات مع التفسير الميسّر، واستمع بأكثر من قارئ لتسهيل التثبيت والمراجعة.
+            </p>
+          </article>
+        </div>
+        <ul class="features">
+          <li>
+            <strong>ربط المسجد والمدرّس والطالب</strong>
+            — منظومة واحدة من تسجيل الجامع حتى متابعة تقدّم الطالب.
+          </li>
+          <li>
+            <strong>واجبات حفظ فردية</strong>
+            — سور وآيات محددة لكل طالب، مع عمل أوفلاين ومزامنة عند الاتصال.
+          </li>
+        </ul>
+      </section>
+
+      <div class="divider divider--download" aria-hidden="true">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
+          <path
+            d="M0,30 C200,55 400,5 600,30 C800,55 1000,5 1200,30 L1200,60 L0,60 Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <section id="download" class="section section--download" data-reveal>
         <h2>ابدأ الآن</h2>
-        <p>حمّل نسخة أندرويد وابدأ تسجيل جامعك من داخل التطبيق.</p>
-        <a class="btn btn--primary" href="hafiz.apk" download>تحميل APK</a>
+        <p class="section__lead">
+          حمّل نسخة أندرويد وابدأ تسجيل جامعك من داخل التطبيق.
+        </p>
+        <a class="btn btn--primary btn--pulse" href="hafiz.apk" download>
+          <span>تحميل APK</span>
+        </a>
       </section>
     </main>
 
     <footer class="footer">
-      <p>حافظ · <a href="mailto:noreply@hafizapp.xyz">hafizapp.xyz</a></p>
+      <p>
+        حافظ ·
+        <a href="https://hafizapp.xyz">hafizapp.xyz</a>
+        ·
+        <a href="mailto:noreply@hafizapp.xyz">noreply@hafizapp.xyz</a>
+      </p>
     </footer>
-
-    <script>
-      const reveal = document.querySelectorAll(".section, .footer");
-      if ("IntersectionObserver" in window) {
-        const io = new IntersectionObserver(
-          (entries) => {
-            for (const e of entries) {
-              if (e.isIntersecting) {
-                e.target.classList.add("is-visible");
-                io.unobserve(e.target);
-              }
-            }
-          },
-          { threshold: 0.18 }
-        );
-        reveal.forEach((el) => io.observe(el));
-      } else {
-        reveal.forEach((el) => el.classList.add("is-visible"));
-      }
-    </script>
   </body>
 </html>
