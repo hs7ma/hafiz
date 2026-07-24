@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="أوفلاين أولاً">
+  <defs>
+    <clipPath id="oct">
+      <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48"/>
+    </clipPath>
+  </defs>
+  <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48" fill="#032C27" stroke="#AF8644" stroke-width="3"/>
+  <g clip-path="url(#oct)" fill="none" stroke="#AF8644" stroke-width="1.2" opacity="0.55">
+    <circle cx="80" cy="80" r="36"/>
+    <path d="M80 28L122 56L106 108L54 108L38 56Z"/>
+    <path d="M48 48L112 112M112 48L48 112"/>
+  </g>
+  <g fill="none" stroke="#FBF9F2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 78c10-18 42-18 52 0"/>
+    <path d="M64 90c6-10 26-10 32 0"/>
+    <circle cx="80" cy="104" r="4" fill="#CD9343" stroke="none"/>
+    <path d="M104 48v28M104 48l-10 10M104 48l10 10" stroke="#CD9343" stroke-width="3"/>
+  </g>
+</svg>

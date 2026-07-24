@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" role="img" aria-hidden="true">
+  <rect width="1600" height="1200" fill="#FBF9F2"/>
+  <defs>
+    <symbol id="oct" viewBox="0 0 280 280">
+      <polygon points="90,18 190,18 262,90 262,190 190,262 90,262 18,190 18,90" fill="#032C27" stroke="#AF8644" stroke-width="5"/>
+      <g fill="none" stroke="#AF8644" stroke-width="2" opacity="0.92">
+        <circle cx="140" cy="140" r="62"/>
+        <circle cx="140" cy="140" r="38"/>
+        <path d="M140 48L210 98L184 186L96 186L70 98Z"/>
+        <path d="M140 232L70 182L96 94L184 94L210 182Z"/>
+        <path d="M48 140L98 70L186 96L186 184L98 210Z"/>
+        <path d="M232 140L182 210L94 184L94 96L182 70Z"/>
+        <path d="M78 78L202 202M202 78L78 202M140 30V250M30 140H250"/>
+      </g>
+    </symbol>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#CCC3B7" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#CCC3B7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="420" cy="340" r="220" fill="url(#glow)"/>
+  <circle cx="580" cy="820" r="170" fill="url(#glow)"/>
+
+  <use href="#oct" x="240" y="90" width="320" height="320"/>
+  <use href="#oct" x="170" y="390" width="210" height="210"/>
+  <use href="#oct" x="390" y="520" width="270" height="270"/>
+  <use href="#oct" x="160" y="680" width="160" height="160"/>
+  <use href="#oct" x="380" y="820" width="140" height="140" opacity="0.88"/>
+
+  <g stroke="#AF8644" stroke-width="1.2" opacity="0.32" fill="none">
+    <path d="M80 180H740"/>
+    <path d="M120 900H700"/>
+    <path d="M200 80V1040"/>
+  </g>
+</svg>

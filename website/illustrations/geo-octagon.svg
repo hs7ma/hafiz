@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-hidden="true">
+  <defs>
+    <clipPath id="oct">
+      <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48"/>
+    </clipPath>
+  </defs>
+  <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48" fill="#032C27" stroke="#AF8644" stroke-width="3"/>
+  <g clip-path="url(#oct)" fill="none" stroke="#AF8644" stroke-width="1.35" opacity="0.92">
+    <circle cx="80" cy="80" r="34"/>
+    <circle cx="80" cy="80" r="22"/>
+    <path d="M80 30L118 58L104 106L56 106L42 58Z"/>
+    <path d="M80 130L42 102L56 54L104 54L118 102Z"/>
+    <path d="M30 80L58 42L106 56L106 104L58 118Z"/>
+    <path d="M130 80L102 118L54 104L54 56L102 42Z"/>
+    <path d="M48 48L112 112M112 48L48 112M80 20V140M20 80H140"/>
+  </g>
+</svg>

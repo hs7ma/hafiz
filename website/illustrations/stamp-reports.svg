@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="تقارير واتساب">
+  <defs>
+    <clipPath id="oct">
+      <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48"/>
+    </clipPath>
+  </defs>
+  <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48" fill="#032C27" stroke="#AF8644" stroke-width="3"/>
+  <g clip-path="url(#oct)" fill="none" stroke="#AF8644" stroke-width="1.2" opacity="0.55">
+    <circle cx="80" cy="80" r="36"/>
+    <path d="M80 28L122 56L106 108L54 108L38 56Z"/>
+    <path d="M48 48L112 112M112 48L48 112"/>
+  </g>
+  <g fill="none" stroke="#FBF9F2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="48" y="46" width="52" height="62" rx="6"/>
+    <path d="M58 64h32M58 78h28M58 92h18" stroke-width="2.4"/>
+    <path d="M92 88c14 0 24 8 24 18 0 0-8-4-16-4h-10l-8 8v-8c-8 0-14-6-14-14 0-8 8-14 24-14z" stroke="#CD9343"/>
+  </g>
+</svg>

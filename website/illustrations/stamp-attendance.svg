@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="حضور وحفظ">
+  <defs>
+    <clipPath id="oct">
+      <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48"/>
+    </clipPath>
+  </defs>
+  <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48" fill="#032C27" stroke="#AF8644" stroke-width="3"/>
+  <g clip-path="url(#oct)" fill="none" stroke="#AF8644" stroke-width="1.2" opacity="0.55">
+    <circle cx="80" cy="80" r="36"/>
+    <path d="M80 28L122 56L106 108L54 108L38 56Z"/>
+    <path d="M48 48L112 112M112 48L48 112"/>
+  </g>
+  <g fill="none" stroke="#FBF9F2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="58" y="44" width="44" height="58" rx="5"/>
+    <path d="M68 60h24M68 74h24M68 88h14"/>
+    <path d="M86 98l6 6 12-14" stroke="#CD9343" stroke-width="3.2"/>
+  </g>
+</svg>

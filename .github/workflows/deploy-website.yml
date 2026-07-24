@@ -30,7 +30,8 @@ jobs:
             _site/privacy-policy _site/terms-of-service
           cp website/index.html website/styles.css website/animations.js \
             website/robots.txt website/logo.svg website/logo-on-dark.svg \
-            website/og-image.png website/og-image.jpg website/hafiz.apk _site/
+            website/og-image.png website/favicon-32.png website/apple-touch-icon.png \
+            website/hafiz.apk _site/
           cp website/illustrations/*.svg _site/illustrations/
           cp website/privacy.html _site/privacy/index.html
           cp website/terms.html _site/terms/index.html

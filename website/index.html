@@ -1,247 +1,271 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
+    <!--
+      THESIS: Mosque decision-makers see Hafiz as geometric parchment clarity — not a SaaS card grid or stamp-cloth template.
+      OWN-WORLD: Parchment #FBF9F2, deep teal #032C27, antique gold #AF8644; Alexandria; octagon lattice stamps; dual teal/gold rule; pill CTAs.
+      STORY: Understand mosque value → see without/with → feel meanings as octagons → start path → install.
+      FIRST VIEWPORT: Dual bar + header logo.svg + one promise + one sentence + dual CTAs + geometric plane.
+      FORM: Geometric parchment from image.svg reference; seed pinned by asset.
+    -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="حافظ — حلقة الوصل بين المسجد والمدرّس والطالب: تسجيل حضور ومستويات الحفظ بسهولة، ومصحف مفسَّر مع تشغيل القراءة بأكثر من قارئ لتسهيل الحفظ."
+      content="حافظ — نظّم حلقات التحفيظ في مسجدك: حضور، واجبات، تقارير، ومصحف — أوفلاين أولاً."
     />
-    <title>حافظ — حلقات تحفيظ المساجد</title>
+    <title>حافظ — لمن يدير حلقة التحفيظ في المسجد</title>
     <link rel="canonical" href="https://hafizapp.xyz/" />
-    <meta name="theme-color" content="#1f4d3a" />
+    <meta name="theme-color" content="#032C27" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="حافظ" />
-    <!-- Facebook / Meta: Open Graph + App ID (clears Sharing Debugger warning) -->
-    <meta property="fb:app_id" content="966242223397117" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="ar_AR" />
     <meta property="og:site_name" content="حافظ" />
     <meta property="og:url" content="https://hafizapp.xyz/" />
-    <meta property="og:title" content="حافظ — حلقات تحفيظ المساجد" />
+    <meta property="og:title" content="حافظ — لمن يدير حلقة التحفيظ في المسجد" />
     <meta
       property="og:description"
-      content="حافظ — حلقة الوصل بين المسجد والمدرّس والطالب: تسجيل حضور ومستويات الحفظ بسهولة، ومصحف مفسَّر مع تشغيل القراءة بأكثر من قارئ لتسهيل الحفظ."
+      content="منظومة عربية للمسجد: جلسة يومية، واجبات، تقارير واتساب، ومصحف — تعمل بدون إنترنت."
     />
-    <meta property="og:image" content="https://hafizapp.xyz/og-image.jpg" />
-    <meta property="og:image:secure_url" content="https://hafizapp.xyz/og-image.jpg" />
-    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image" content="https://hafizapp.xyz/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="حافظ — حلقات تحفيظ المساجد" />
-    <link rel="image_src" href="https://hafizapp.xyz/og-image.jpg" />
-    <!-- Twitter / X cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://hafizapp.xyz/" />
-    <meta name="twitter:title" content="حافظ — حلقات تحفيظ المساجد" />
+    <meta name="twitter:title" content="حافظ — لمن يدير حلقة التحفيظ في المسجد" />
     <meta
       name="twitter:description"
-      content="حلقة الوصل بين المسجد والمدرّس والطالب لحلقات تحفيظ القرآن."
+      content="منظومة عربية للمسجد: حضور وواجبات وتقارير — أوفلاين أولاً."
     />
-    <meta name="twitter:image" content="https://hafizapp.xyz/og-image.jpg" />
-    <meta name="twitter:image:alt" content="حافظ — حلقات تحفيظ المساجد" />
+    <meta name="twitter:image" content="https://hafizapp.xyz/og-image.png" />
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="og-image.png" />
+    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Scheherazade+New:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260723c" />
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"
-    ></script>
-    <script defer src="animations.js?v=20260723c"></script>
-    <noscript>
-      <style>
-        .scroll-progress,
-        .hero__particles {
-          display: none !important;
-        }
-      </style>
-    </noscript>
+    <link rel="preload" as="image" href="illustrations/hero-geometry.svg" fetchpriority="high" />
+    <link rel="stylesheet" href="styles.css?v=20260724t" />
+    <script defer src="animations.js?v=20260724t"></script>
   </head>
   <body>
+    <a class="skip-link" href="#main">تخطّي إلى المحتوى</a>
     <div class="scroll-progress" aria-hidden="true"></div>
-    <header class="hero">
-      <div class="hero__atmosphere" aria-hidden="true"></div>
-      <div class="hero__blob hero__blob--olive" aria-hidden="true"></div>
-      <div class="hero__blob hero__blob--gold" aria-hidden="true"></div>
-      <canvas class="hero__particles" aria-hidden="true"></canvas>
+    <div class="brand-bar" aria-hidden="true"></div>
 
-      <div class="hero__content">
-        <img
-          class="hero__mark"
-          src="logo.svg"
-          width="360"
-          height="196"
-          alt="حافظ"
-          fetchpriority="high"
-        />
-        <h1 class="hero__brand">حافظ</h1>
-        <p class="hero__lead">
-          حلقة الوصل بين المسجد والمدرّس والطالب في حلقات تحفيظ القرآن
-        </p>
-        <div class="hero__actions">
-          <a class="btn btn--primary" href="hafiz.apk" download>تحميل التطبيق</a>
-          <a class="btn btn--ghost" href="#how">تعرّف أكثر</a>
-        </div>
-        <a class="hero__scroll" href="#how" aria-label="انتقل للمحتوى">
-          <span aria-hidden="true"></span>
-          مرّر للأسفل
+    <header class="site-header" data-header>
+      <div class="site-header__inner">
+        <a class="site-brand" href="#top" aria-label="حافظ — الصفحة الرئيسية">
+          <img src="logo.svg" width="73" height="67" alt="حافظ" />
         </a>
+        <button
+          class="site-nav__toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+          data-nav-toggle
+        >
+          القائمة
+        </button>
+        <nav id="site-nav" class="site-nav" aria-label="التنقل الرئيسي">
+          <ul class="site-nav__links">
+            <li><a href="#proof">القيمة</a></li>
+            <li><a href="#meanings">المعاني</a></li>
+            <li><a href="#start">البدء</a></li>
+          </ul>
+          <a class="btn btn--primary btn--sm site-nav__cta" href="#download">تحميل</a>
+        </nav>
       </div>
     </header>
 
-    <main>
-      <div class="divider divider--how" aria-hidden="true">
-        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
-          <path
-            d="M0,30 C200,60 400,0 600,30 C800,60 1000,0 1200,30 L1200,60 L0,60 Z"
-            fill="currentColor"
-          />
-        </svg>
+    <section id="top" class="hero">
+      <div class="hero__plane" aria-hidden="true">
+        <img
+          class="hero__art"
+          src="illustrations/hero-geometry.svg"
+          width="1600"
+          height="1200"
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+        />
       </div>
-      <section id="how" class="section section--how" data-reveal>
-        <h2>كيف يعمل</h2>
-        <p class="section__lead">
-          ثلاث خطوات بسيطة لتشغيل حلقة التحفيظ في مسجدك.
-        </p>
-        <ol class="steps">
-          <li class="steps__item" data-reveal-child>
-            <span class="steps__num" aria-hidden="true">1</span>
-            <div>
-              <h3>سجّل جامعك</h3>
-              <p>قدّم طلب التسجيل من التطبيق وانتظر موافقة المنصة.</p>
-            </div>
-          </li>
-          <li class="steps__item" data-reveal-child>
-            <span class="steps__num" aria-hidden="true">2</span>
-            <div>
-              <h3>ادعُ المدرّسين</h3>
-              <p>أنشئ رموز دعوة قصيرة العمر وشاركها مع مدرّسي الحلقات.</p>
-            </div>
-          </li>
-          <li class="steps__item" data-reveal-child>
-            <span class="steps__num" aria-hidden="true">3</span>
-            <div>
-              <h3>تابع الحضور والحفظ</h3>
-              <p>سجّل الحضور والواجبات ومستويات الحفظ يومًا بيوم.</p>
-            </div>
-          </li>
-        </ol>
-      </section>
+      <div class="hero__wash" aria-hidden="true"></div>
 
-      <div class="divider divider--audience" aria-hidden="true">
-        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
-          <path
-            d="M0,30 C300,0 500,60 700,30 C900,0 1100,60 1200,30 L1200,60 L0,60 Z"
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-      <section id="audience" class="section section--audience" data-reveal>
-        <h2>حلقة وصل واحدة</h2>
-        <p class="section__lead">
-          المسجد والمدرّس والطالب في منظومة واحدة — كل دور يرى ما يحتاجه بلا تعقيد.
+      <div class="hero__copy">
+        <h1 class="hero__title">حلقة منظّمة… من الجلسة حتى تقرير ولي الأمر</h1>
+        <p class="hero__lead">
+          منظومة عربية للمسجد تعمل <strong>بدون إنترنت</strong> داخل الحلقة، ثم تزامن عند الاتصال.
         </p>
-        <figure class="showcase-hero">
-          <object
-            class="showcase-hero__art"
-            type="image/svg+xml"
-            data="illustrations/link.svg"
-            aria-label="رسم يوضح ربط المسجد والمدرّس والطالب"
-          ></object>
-        </figure>
-        <ul class="roles">
-          <li class="roles__item" data-reveal-child>
-            <h3>إدارة الجامع</h3>
-            <p>دعوة المدرّسين، متابعة الحلقات، ورؤية مستويات الطلبة في مكان واحد.</p>
-          </li>
-          <li class="roles__item" data-reveal-child>
-            <h3>المدرّس</h3>
-            <p>تسجيل حضور الطلبة بسهولة، تقييم الحفظ، الواجبات، والتقارير لأولياء الأمور.</p>
-          </li>
-          <li class="roles__item" data-reveal-child>
-            <h3>الطالب</h3>
-            <p>دخول بسيط لمتابعة واجبه، مع مصحف للقراءة والاستماع والتفسير.</p>
-          </li>
-        </ul>
-      </section>
-
-      <div class="divider divider--features" aria-hidden="true">
-        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
-          <path
-            d="M0,30 C150,50 350,10 600,30 C850,50 1050,10 1200,30 L1200,60 L0,60 Z"
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-      <section id="features" class="section section--features" data-reveal>
-        <h2>أهم الميزات</h2>
-        <p class="section__lead">
-          ما يميّز حافظ في الحلقة اليومية والحفظ مع المصحف.
-        </p>
-        <div class="feature-grid">
-          <article class="feature-card" data-reveal-child>
-            <object
-              class="feature-card__art"
-              type="image/svg+xml"
-              data="illustrations/attendance.svg"
-              aria-label="رسم حضور الطلبة ومستويات الحفظ"
-            ></object>
-            <h3>حضور ومستويات الحفظ</h3>
-            <p>
-              سجّل الحضور والغياب بسهولة، وقيّم مستوى حفظ كل طالب في الجلسة نفسها.
-            </p>
-          </article>
-          <article class="feature-card" data-reveal-child>
-            <object
-              class="feature-card__art"
-              type="image/svg+xml"
-              data="illustrations/mushaf.svg"
-              aria-label="رسم المصحف المفسّر وتشغيل القراءة"
-            ></object>
-            <h3>مصحف مفسَّر وقرّاء متعددون</h3>
-            <p>
-              اقرأ الآيات مع التفسير الميسّر، واستمع بأكثر من قارئ لتسهيل التثبيت والمراجعة.
-            </p>
-          </article>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#proof">كيف يساعد مسجدك؟</a>
+          <a class="btn btn--ghost" href="#download">تحميل أندرويد</a>
         </div>
-        <ul class="features">
-          <li>
-            <strong>ربط المسجد والمدرّس والطالب</strong>
-            — منظومة واحدة من تسجيل الجامع حتى متابعة تقدّم الطالب.
-          </li>
-          <li>
-            <strong>واجبات حفظ فردية</strong>
-            — سور وآيات محددة لكل طالب، مع عمل أوفلاين ومزامنة عند الاتصال.
-          </li>
-        </ul>
+      </div>
+    </section>
+
+    <main id="main">
+      <section id="proof" class="section section--proof">
+        <div class="section__wrap">
+          <h2 class="section__title">لماذا يهمّ المسجد؟</h2>
+          <p class="section__lead">حجتان متقابلتان — بدون منظومة، ومع حافظ.</p>
+
+          <div class="split" data-split>
+            <div class="split__pane split__pane--before">
+              <h3>بدون منظومة</h3>
+              <ul>
+                <li>حضور على ورق أو واتساب</li>
+                <li>واجبات غير واضحة</li>
+                <li>متابعة الحلقات صعبة</li>
+                <li>تقارير أولياء الأمور متأخرة</li>
+              </ul>
+            </div>
+            <button class="split__handle" type="button" aria-label="اسحب للمقارنة" data-split-handle></button>
+            <div class="split__pane split__pane--after">
+              <h3>مع حافظ</h3>
+              <ul>
+                <li>جلسة يومية وحضور لكل طالب</li>
+                <li>واجب محدد بسورة وآيات</li>
+                <li>ملخص للمدرّسين والطلاب</li>
+                <li>تقرير واتساب جاهز بعد الدرس</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <div class="divider divider--download" aria-hidden="true">
-        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
-          <path
-            d="M0,30 C200,55 400,5 600,30 C800,55 1000,5 1200,30 L1200,60 L0,60 Z"
-            fill="currentColor"
+      <section id="meanings" class="section section--meanings">
+        <div class="section__wrap">
+          <h2 class="section__title">معاني حافظ</h2>
+          <p class="section__lead">كل شكل ثماني معنى واحد — اضغط لترى التفاصيل.</p>
+
+          <div class="octagon-grid">
+            <article class="octagon-panel is-active" data-stamp tabindex="0">
+              <img
+                class="octagon-panel__art"
+                src="illustrations/stamp-attendance.svg?v=20260724h"
+                width="160"
+                height="160"
+                alt=""
+                loading="lazy"
+              />
+              <h3>حضور وحفظ</h3>
+              <p>سجّل الحاضر والغائب، وقيّم مستوى الحفظ في نفس الجلسة.</p>
+            </article>
+            <article class="octagon-panel" data-stamp tabindex="0">
+              <img
+                class="octagon-panel__art"
+                src="illustrations/stamp-mushaf.svg?v=20260724h"
+                width="160"
+                height="160"
+                alt=""
+                loading="lazy"
+              />
+              <h3>مصحف وقرّاء</h3>
+              <p>آيات مع تفسير ميسّر، واستماع بعدة أصوات لتثبيت الحفظ.</p>
+            </article>
+            <article class="octagon-panel" data-stamp tabindex="0">
+              <img
+                class="octagon-panel__art"
+                src="illustrations/stamp-reports.svg?v=20260724h"
+                width="160"
+                height="160"
+                alt=""
+                loading="lazy"
+              />
+              <h3>تقارير واتساب</h3>
+              <p>رسالة جاهزة لولي الأمر: حضور وواجب ومستوى الحفظ.</p>
+            </article>
+            <article class="octagon-panel" data-stamp tabindex="0">
+              <img
+                class="octagon-panel__art"
+                src="illustrations/stamp-offline.svg?v=20260724h"
+                width="160"
+                height="160"
+                alt=""
+                loading="lazy"
+              />
+              <h3>أوفلاين أولاً</h3>
+              <p>يعمل داخل المسجد مع ضعف الشبكة، ثم يرفع البيانات عند الاتصال.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="start" class="section section--start">
+        <div class="section__wrap">
+          <h2 class="section__title">كيف تبدأ؟</h2>
+          <ol class="path-steps">
+            <li class="path-steps__item">
+              <span class="path-steps__num" aria-hidden="true">1</span>
+              <div>
+                <h3>مسجد</h3>
+                <p>حمّل التطبيق ← سجّل المسجد ← انتظر الموافقة ← ادخل برمز «حالة الطلب» ← ادعُ المدرّسين.</p>
+              </div>
+            </li>
+            <li class="path-steps__item">
+              <span class="path-steps__num" aria-hidden="true">2</span>
+              <div>
+                <h3>مدرّس</h3>
+                <p>خذ رمز الدعوة من مسؤول المسجد ← سجّل بالهاتف ← ابدأ «جلسة اليوم».</p>
+              </div>
+            </li>
+            <li class="path-steps__item">
+              <span class="path-steps__num" aria-hidden="true">3</span>
+              <div>
+                <h3>طالب</h3>
+                <p>خذ اسم المستخدم والرمز من مدرّسك ← ادخل ← تابع الواجب والمصحف.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="faq" class="section section--faq">
+        <div class="section__wrap section__wrap--narrow">
+          <h2 class="section__title">أسئلة</h2>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary>هل التطبيق مجاني؟</summary>
+              <p>نعم. حمّل APK وابدأ تسجيل مسجدك.</p>
+            </details>
+            <details class="faq-item">
+              <summary>هل يعمل بدون إنترنت؟</summary>
+              <p>نعم — يسجّل محليًا ثم يزامن عند الاتصال.</p>
+            </details>
+            <details class="faq-item">
+              <summary>هل يوجد تطبيق لـ iPhone؟</summary>
+              <p>حاليًا أندرويد فقط. iOS قيد التخطيط.</p>
+            </details>
+            <details class="faq-item">
+              <summary>هل أحتاج بريدًا؟</summary>
+              <p>لا — الهاتف العراقي (+964) ورموز الدخول تكفي.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" class="section section--download">
+        <div class="section__wrap section__wrap--narrow download-seal">
+          <img
+            class="download-seal__mark"
+            src="illustrations/geo-octagon.svg"
+            width="88"
+            height="88"
+            alt=""
+            loading="lazy"
           />
-        </svg>
-      </div>
-      <section id="download" class="section section--download" data-reveal>
-        <h2>ابدأ الآن</h2>
-        <p class="section__lead">
-          حمّل نسخة أندرويد وابدأ تسجيل جامعك من داخل التطبيق.
-        </p>
-        <a class="btn btn--primary btn--pulse" href="hafiz.apk" download>
-          <span>تحميل APK</span>
-        </a>
+          <h2 class="section__title">جاهز لتجربة حافظ؟</h2>
+          <p class="section__lead">حمّل لأندرويد، ثم سجّل مسجدك من داخل التطبيق.</p>
+          <a class="btn btn--primary btn--lg" href="hafiz.apk" download>تحميل APK</a>
+          <p class="download-meta">
+            أندرويد 6.0 فأعلى · الدعم:
+            <a href="mailto:noreply@hafizapp.xyz">noreply@hafizapp.xyz</a>
+          </p>
+        </div>
       </section>
     </main>
 
@@ -250,9 +274,7 @@
         حافظ ·
         <a href="https://hafizapp.xyz">hafizapp.xyz</a>
         ·
-        <a href="mailto:noreply@hafizapp.xyz">noreply@hafizapp.xyz</a>
-        ·
-        <a href="/privacy">سياسة الخصوصية</a>
+        <a href="/privacy">الخصوصية</a>
         ·
         <a href="/terms">الشروط</a>
       </p>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="*B'1J1 H'*3'(">
+  <style>
+    @media (prefers-reduced-motion: reduce) {
+      .hafiz-motion > animateTransform,
+      .row animate,
+      .bubble animateTransform,
+      .dot animate {
+        display: none;
+      }
+      .row { opacity: 1 !important; }
+    }
+  </style>
+  <!-- Hand-crafted flat illustration matching Hafiz QuiverAI style (generate credits exhausted; animate API unavailable) -->
+  <g class="hafiz-motion">
+    <animateTransform attributeName="transform" type="translate" values="0 1.2; 0 -1.2; 0 1.2" dur="5.5s" repeatCount="indefinite"/>
+    <!-- Phone body -->
+    <rect x="42" y="18" width="76" height="124" rx="12" fill="#145938" stroke="#111C2A" stroke-width="1"/>
+    <rect x="48" y="30" width="64" height="100" rx="4" fill="#F6F2E9"/>
+    <rect x="70" y="22" width="20" height="4" rx="2" fill="#131B28"/>
+    <!-- Report rows -->
+    <g class="row" opacity="0">
+      <animate attributeName="opacity" values="0;1;1;0.35;1" dur="4.5s" begin="0s" repeatCount="indefinite"/>
+      <rect x="54" y="40" width="52" height="14" rx="3" fill="#E5F4EB"/>
+      <circle cx="61" cy="47" r="3.2" fill="#C8A856"/>
+      <path d="M59.6 47.1l1.1 1.2 2.4-2.6" fill="none" stroke="#145938" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="68" y1="47" x2="98" y2="47" stroke="#111C2A" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+    </g>
+    <g class="row" opacity="0">
+      <animate attributeName="opacity" values="0;1;1;0.35;1" dur="4.5s" begin="0.35s" repeatCount="indefinite"/>
+      <rect x="54" y="60" width="52" height="14" rx="3" fill="#E5F4EB"/>
+      <circle cx="61" cy="67" r="3.2" fill="#C8A856"/>
+      <path d="M59.6 67.1l1.1 1.2 2.4-2.6" fill="none" stroke="#145938" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="68" y1="67" x2="92" y2="67" stroke="#111C2A" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+    </g>
+    <g class="row" opacity="0">
+      <animate attributeName="opacity" values="0;1;1;0.35;1" dur="4.5s" begin="0.7s" repeatCount="indefinite"/>
+      <rect x="54" y="80" width="52" height="14" rx="3" fill="#E5F4EB"/>
+      <circle cx="61" cy="87" r="3.2" fill="#C8A856"/>
+      <path d="M59.6 87.1l1.1 1.2 2.4-2.6" fill="none" stroke="#145938" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="68" y1="87" x2="88" y2="87" stroke="#111C2A" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+    </g>
+    <!-- Level bars -->
+    <rect x="58" y="104" width="8" height="10" rx="1.5" fill="#C8A856" opacity="0.75"/>
+    <rect x="70" y="98" width="8" height="16" rx="1.5" fill="#C8A856" opacity="0.85"/>
+    <rect x="82" y="92" width="8" height="22" rx="1.5" fill="#C8A856"/>
+    <line x1="56" y1="116" x2="98" y2="116" stroke="#111C2A" stroke-width="1" opacity="0.4"/>
+    <!-- WhatsApp-style send bubble -->
+    <g class="bubble" transform="translate(108 96)">
+      <animateTransform attributeName="transform" type="translate" values="108 96; 112 92; 108 96" dur="2.8s" repeatCount="indefinite"/>
+      <path d="M0 8c0-8 7-14 16-14h18c9 0 16 6 16 14s-7 14-16 14h-10l-8 8v-8c-9 0-16-6-16-14z" fill="#C8A856" stroke="#111C2A" stroke-width="0.9"/>
+      <g class="dot">
+        <circle cx="14" cy="8" r="2" fill="#145938">
+          <animate attributeName="opacity" values="0.35;1;0.35" dur="1.4s" begin="0s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="22" cy="8" r="2" fill="#145938">
+          <animate attributeName="opacity" values="0.35;1;0.35" dur="1.4s" begin="0.2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="30" cy="8" r="2" fill="#145938">
+          <animate attributeName="opacity" values="0.35;1;0.35" dur="1.4s" begin="0.4s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </g>
+  </g>
+</svg>
