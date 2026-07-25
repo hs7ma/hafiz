@@ -64,6 +64,7 @@ class DemoHafizRepository {
   ClassSession? todaySession;
   final List<AttendanceRecord> attendance = [];
   final Map<String, StudentHomework> homeworkByStudent = {};
+  final List<HomeworkAssignment> homeworkAssignments = [];
   final Map<String, ReadingProgress> progressByStudent = {};
   final Map<String, MemorizationLevel> lastMemorizationByStudent = {};
   TeacherClassSchedule? classSchedule;
@@ -324,6 +325,31 @@ class DemoHafizRepository {
       );
     }
 
+    final serverAssignments =
+        (data['homework_assignments'] as List?) ?? const [];
+    for (final raw in serverAssignments.whereType<Map>()) {
+      final h = Map<String, dynamic>.from(raw);
+      final id = h['id']?.toString() ?? '';
+      final sid = h['student_id']?.toString() ?? '';
+      if (id.isEmpty || sid.isEmpty) continue;
+      homeworkAssignments.removeWhere((a) => a.id == id);
+      homeworkAssignments.add(
+        HomeworkAssignment(
+          id: id,
+          studentId: sid,
+          sessionId: h['session_id']?.toString(),
+          surahNumber:
+              int.tryParse(h['surah_number']?.toString() ?? '') ?? 1,
+          fromAyah: int.tryParse(h['from_ayah']?.toString() ?? '') ?? 1,
+          toAyah: int.tryParse(h['to_ayah']?.toString() ?? '') ?? 1,
+          note: h['note']?.toString() ?? '',
+          assignedAt:
+              DateTime.tryParse(h['assigned_at']?.toString() ?? '') ??
+                  DateTime.now(),
+        ),
+      );
+    }
+
     final serverHw = (data['student_homework'] as List?) ?? const [];
     for (final raw in serverHw.whereType<Map>()) {
       final h = Map<String, dynamic>.from(raw);
@@ -457,6 +483,7 @@ class DemoHafizRepository {
           status: sessionStatusFromWire(s['status']?.toString()),
           startedAt:
               DateTime.tryParse(s['started_at']?.toString() ?? '') ?? date,
+          endedAt: DateTime.tryParse(s['ended_at']?.toString() ?? ''),
         ),
       );
     }
@@ -541,6 +568,7 @@ class DemoHafizRepository {
       startedAt:
           DateTime.tryParse(serverToday['started_at']?.toString() ?? '') ??
               today,
+      endedAt: DateTime.tryParse(serverToday['ended_at']?.toString() ?? ''),
     );
 
     final localByStudent = {for (final a in attendance) a.studentId: a};
@@ -567,6 +595,9 @@ class DemoHafizRepository {
               ? null
               : memorizationFromWire(wire),
           behaviorScore: int.tryParse(a['behavior_score']?.toString() ?? ''),
+          evaluationConfirmedAt: DateTime.tryParse(
+            a['evaluation_confirmed_at']?.toString() ?? '',
+          ),
         ),
       );
     }
@@ -638,6 +669,20 @@ class DemoHafizRepository {
             'assigned_at': e.value.assignedAt.toIso8601String(),
           },
       },
+      homeworkAssignments: homeworkAssignments
+          .map(
+            (a) => {
+              'id': a.id,
+              'student_id': a.studentId,
+              'session_id': a.sessionId,
+              'surah_number': a.surahNumber,
+              'from_ayah': a.fromAyah,
+              'to_ayah': a.toAyah,
+              'note': a.note,
+              'assigned_at': a.assignedAt.toIso8601String(),
+            },
+          )
+          .toList(),
       progress: {
         for (final e in progressByStudent.entries)
           e.key: {
@@ -659,6 +704,8 @@ class DemoHafizRepository {
               'session_date': todaySession!.sessionDate.toIso8601String(),
               'status': sessionStatusWire(todaySession!.status),
               'started_at': todaySession!.startedAt.toIso8601String(),
+              if (todaySession!.endedAt != null)
+                'ended_at': todaySession!.endedAt!.toIso8601String(),
             },
       attendance: attendance
           .map(
@@ -672,6 +719,9 @@ class DemoHafizRepository {
                   ? null
                   : memorizationWire(a.memorizationLevel!),
               'behavior_score': a.behaviorScore,
+              if (a.evaluationConfirmedAt != null)
+                'evaluation_confirmed_at':
+                    a.evaluationConfirmedAt!.toIso8601String(),
             },
           )
           .toList(),
@@ -694,6 +744,7 @@ class DemoHafizRepository {
               'session_date': s.sessionDate.toIso8601String(),
               'status': sessionStatusWire(s.status),
               'started_at': s.startedAt.toIso8601String(),
+              if (s.endedAt != null) 'ended_at': s.endedAt!.toIso8601String(),
             },
           )
           .toList(),
@@ -806,6 +857,27 @@ class DemoHafizRepository {
           ),
       });
 
+    homeworkAssignments
+      ..clear()
+      ..addAll(
+        snap.homeworkAssignments.map(
+          (a) => HomeworkAssignment(
+            id: a['id']?.toString() ?? '',
+            studentId: a['student_id']?.toString() ?? '',
+            sessionId: a['session_id']?.toString(),
+            surahNumber:
+                int.tryParse(a['surah_number']?.toString() ?? '') ?? 1,
+            fromAyah: int.tryParse(a['from_ayah']?.toString() ?? '') ?? 1,
+            toAyah: int.tryParse(a['to_ayah']?.toString() ?? '') ?? 1,
+            note: a['note']?.toString() ?? '',
+            assignedAt: DateTime.tryParse(
+                  a['assigned_at']?.toString() ?? '',
+                ) ??
+                DateTime.now(),
+          ),
+        ),
+      );
+
     progressByStudent
       ..clear()
       ..addAll({
@@ -839,6 +911,7 @@ class DemoHafizRepository {
         startedAt:
             DateTime.tryParse(s['started_at']?.toString() ?? '') ??
                 DateTime.now(),
+        endedAt: DateTime.tryParse(s['ended_at']?.toString() ?? ''),
       );
     } else {
       todaySession = null;
@@ -860,6 +933,9 @@ class DemoHafizRepository {
             behaviorScore: a['behavior_score'] == null
                 ? null
                 : int.tryParse(a['behavior_score'].toString()),
+            evaluationConfirmedAt: DateTime.tryParse(
+              a['evaluation_confirmed_at']?.toString() ?? '',
+            ),
           ),
         ),
       );
@@ -904,6 +980,7 @@ class DemoHafizRepository {
             startedAt:
                 DateTime.tryParse(s['started_at']?.toString() ?? '') ??
                     DateTime.now(),
+            endedAt: DateTime.tryParse(s['ended_at']?.toString() ?? ''),
           ),
         ),
       );
@@ -1872,6 +1949,22 @@ class DemoHafizRepository {
   ) =>
       memorizationOverviewForStudents(studentsForTeacher(teacherId));
 
+  bool get _sessionLocked => todaySession?.isCompleted ?? false;
+
+  Map<String, dynamic> _attendancePayload(AttendanceRecord a) => {
+        'id': a.id,
+        'session_id': a.sessionId,
+        'student_id': a.studentId,
+        'status': attendanceStatusWire(a.status),
+        'memorization_level': a.memorizationLevel == null
+            ? null
+            : memorizationWire(a.memorizationLevel!),
+        'behavior_score': a.behaviorScore,
+        if (a.evaluationConfirmedAt != null)
+          'evaluation_confirmed_at':
+              a.evaluationConfirmedAt!.toIso8601String(),
+      };
+
   void _syncAttendanceRoster() {
     if (todaySession == null) return;
     final roster = myStudents;
@@ -1890,6 +1983,7 @@ class DemoHafizRepository {
               status: prev.status,
               memorizationLevel: prev.memorizationLevel,
               behaviorScore: prev.behaviorScore,
+              evaluationConfirmedAt: prev.evaluationConfirmedAt,
             );
           }
           return AttendanceRecord(
@@ -2108,7 +2202,40 @@ class DemoHafizRepository {
     return todaySession!;
   }
 
+  ClassSession? endTodaySession() {
+    final session = todaySession;
+    if (session == null || session.isCompleted) return session;
+    final ended = DateTime.now();
+    todaySession = ClassSession(
+      id: session.id,
+      mosqueId: session.mosqueId,
+      teacherId: session.teacherId,
+      sessionDate: session.sessionDate,
+      status: SessionStatus.completed,
+      startedAt: session.startedAt,
+      endedAt: ended,
+    );
+    _afterWrite(
+      op: SyncOp(
+        id: _uuid.v4(),
+        type: 'upsert_session',
+        payload: {
+          'id': todaySession!.id,
+          'mosque_id': todaySession!.mosqueId,
+          'teacher_id': todaySession!.teacherId,
+          'session_date':
+              '${session.sessionDate.year.toString().padLeft(4, '0')}-${session.sessionDate.month.toString().padLeft(2, '0')}-${session.sessionDate.day.toString().padLeft(2, '0')}',
+          'status': 'completed',
+          'started_at': todaySession!.startedAt.toIso8601String(),
+          'ended_at': ended.toIso8601String(),
+        },
+      ),
+    );
+    return todaySession;
+  }
+
   void setAttendance(String studentId, AttendanceStatus status) {
+    if (_sessionLocked) return;
     final index = attendance.indexWhere((a) => a.studentId == studentId);
     if (index >= 0) {
       attendance[index] = attendance[index].copyWith(status: status);
@@ -2117,22 +2244,14 @@ class DemoHafizRepository {
         op: SyncOp(
           id: _uuid.v4(),
           type: 'upsert_attendance',
-          payload: {
-            'id': a.id,
-            'session_id': a.sessionId,
-            'student_id': a.studentId,
-            'status': attendanceStatusWire(a.status),
-            'memorization_level': a.memorizationLevel == null
-                ? null
-                : memorizationWire(a.memorizationLevel!),
-            'behavior_score': a.behaviorScore,
-          },
+          payload: _attendancePayload(a),
         ),
       );
     }
   }
 
   void setMemorizationLevel(String studentId, MemorizationLevel level) {
+    if (_sessionLocked) return;
     final index = attendance.indexWhere((a) => a.studentId == studentId);
     if (index < 0) return;
     final row = attendance[index];
@@ -2144,19 +2263,13 @@ class DemoHafizRepository {
       op: SyncOp(
         id: _uuid.v4(),
         type: 'upsert_attendance',
-        payload: {
-          'id': a.id,
-          'session_id': a.sessionId,
-          'student_id': a.studentId,
-          'status': attendanceStatusWire(a.status),
-          'memorization_level': memorizationWire(level),
-          'behavior_score': a.behaviorScore,
-        },
+        payload: _attendancePayload(a),
       ),
     );
   }
 
   void setBehaviorScore(String studentId, int score) {
+    if (_sessionLocked) return;
     final index = attendance.indexWhere((a) => a.studentId == studentId);
     if (index < 0) return;
     final row = attendance[index];
@@ -2167,16 +2280,26 @@ class DemoHafizRepository {
       op: SyncOp(
         id: _uuid.v4(),
         type: 'upsert_attendance',
-        payload: {
-          'id': a.id,
-          'session_id': a.sessionId,
-          'student_id': a.studentId,
-          'status': attendanceStatusWire(a.status),
-          'memorization_level': a.memorizationLevel == null
-              ? null
-              : memorizationWire(a.memorizationLevel!),
-          'behavior_score': a.behaviorScore,
-        },
+        payload: _attendancePayload(a),
+      ),
+    );
+  }
+
+  void confirmEvaluation(String studentId) {
+    if (_sessionLocked) return;
+    final index = attendance.indexWhere((a) => a.studentId == studentId);
+    if (index < 0) return;
+    final row = attendance[index];
+    if (!row.isAttending || row.evaluationConfirmed) return;
+    final confirmedAt = DateTime.now();
+    attendance[index] =
+        row.copyWith(evaluationConfirmedAt: confirmedAt);
+    final a = attendance[index];
+    _afterWrite(
+      op: SyncOp(
+        id: _uuid.v4(),
+        type: 'upsert_attendance',
+        payload: _attendancePayload(a),
       ),
     );
   }
@@ -2188,6 +2311,43 @@ class DemoHafizRepository {
     required int toAyah,
     String note = '',
   }) {
+    if (_sessionLocked) {
+      return homeworkByStudent[studentId] ??
+          StudentHomework(
+            id: '',
+            studentId: studentId,
+            surahNumber: surahNumber,
+            fromAyah: fromAyah,
+            toAyah: toAyah,
+            note: note,
+            assignedAt: DateTime.now(),
+          );
+    }
+    final previous = homeworkByStudent[studentId];
+    if (previous != null) {
+      final archived = HomeworkAssignment(
+        id: previous.id,
+        studentId: studentId,
+        sessionId: todaySession?.id,
+        surahNumber: previous.surahNumber,
+        fromAyah: previous.fromAyah,
+        toAyah: previous.toAyah,
+        note: previous.note,
+        assignedAt: previous.assignedAt,
+      );
+      homeworkAssignments.removeWhere((a) => a.id == archived.id);
+      homeworkAssignments.add(archived);
+      _enqueue('upsert_homework_assignment', {
+        'id': archived.id,
+        'student_id': archived.studentId,
+        'session_id': archived.sessionId,
+        'surah_number': archived.surahNumber,
+        'from_ayah': archived.fromAyah,
+        'to_ayah': archived.toAyah,
+        'note': archived.note,
+        'assigned_at': archived.assignedAt.toIso8601String(),
+      });
+    }
     final hw = StudentHomework(
       id: _uuid.v4(),
       studentId: studentId,
@@ -2218,6 +2378,16 @@ class DemoHafizRepository {
 
   StudentHomework? homeworkFor(String studentId) =>
       homeworkByStudent[studentId];
+
+  HomeworkAssignment? previousHomeworkFor(String studentId) {
+    final current = homeworkByStudent[studentId];
+    final candidates = homeworkAssignments
+        .where((a) => a.studentId == studentId)
+        .where((a) => current == null || a.id != current.id)
+        .toList()
+      ..sort((a, b) => b.assignedAt.compareTo(a.assignedAt));
+    return candidates.isEmpty ? null : candidates.first;
+  }
 
   StudentHomework? homeworkForCurrentStudent() {
     final user = currentUser;
@@ -2464,6 +2634,11 @@ class SessionController extends Notifier<ClassSession?> {
     state = ref.read(demoRepositoryProvider).startTodaySession();
     ref.read(attendanceControllerProvider.notifier).refresh();
   }
+
+  void endToday() {
+    state = ref.read(demoRepositoryProvider).endTodaySession();
+    ref.read(attendanceControllerProvider.notifier).refresh();
+  }
 }
 
 final sessionControllerProvider =
@@ -2614,6 +2789,11 @@ class AttendanceController extends Notifier<List<AttendanceRecord>> {
 
   void setBehavior(String studentId, int score) {
     ref.read(demoRepositoryProvider).setBehaviorScore(studentId, score);
+    refresh();
+  }
+
+  void confirmEvaluation(String studentId) {
+    ref.read(demoRepositoryProvider).confirmEvaluation(studentId);
     refresh();
   }
 }

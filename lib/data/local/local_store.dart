@@ -44,6 +44,7 @@ class LocalSnapshot {
     required this.teachers,
     required this.students,
     required this.homework,
+    this.homeworkAssignments = const [],
     required this.progress,
     required this.lastMemorization,
     this.todaySession,
@@ -60,6 +61,7 @@ class LocalSnapshot {
   final List<Map<String, dynamic>> teachers;
   final List<Map<String, dynamic>> students;
   final Map<String, Map<String, dynamic>> homework;
+  final List<Map<String, dynamic>> homeworkAssignments;
   final Map<String, Map<String, dynamic>> progress;
   final Map<String, String> lastMemorization;
   final Map<String, dynamic>? todaySession;
@@ -76,6 +78,7 @@ class LocalSnapshot {
         'teachers': teachers,
         'students': students,
         'homework': homework,
+        'homework_assignments': homeworkAssignments,
         'progress': progress,
         'last_memorization': lastMemorization,
         'today_session': todaySession,
@@ -120,6 +123,7 @@ class LocalSnapshot {
       teachers: list(json['teachers']),
       students: list(json['students']),
       homework: nest(json['homework']),
+      homeworkAssignments: list(json['homework_assignments']),
       progress: nest(json['progress']),
       lastMemorization: stringMap(json['last_memorization']),
       todaySession: json['today_session'] is Map

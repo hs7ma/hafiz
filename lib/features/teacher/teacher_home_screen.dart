@@ -203,6 +203,65 @@ class TeacherHomeScreen extends ConsumerWidget {
                 ),
               ),
             if (session != null) ...[
+              const SizedBox(height: 8),
+              if (session.isCompleted)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GlassCard(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lock_outline,
+                          color: AppColors.olive.withValues(alpha: 0.85),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'تم إنهاء المحاضرة — العرض للقراءة فقط',
+                            style: TextStyle(
+                              color: AppColors.ink.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 145),
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('إنهاء المحاضرة'),
+                          content: const Text(
+                            'هل تريد إنهاء محاضرة اليوم؟ لن يمكن تعديل الحضور أو التقييم بعد الإنهاء.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('إلغاء'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('إنهاء'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok != true || !context.mounted) return;
+                      ref.read(sessionControllerProvider.notifier).endToday();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم إنهاء محاضرة اليوم')),
+                      );
+                    },
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('إنهاء المحاضرة'),
+                  ),
+                ),
               const SizedBox(height: 12),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 150),
@@ -246,7 +305,11 @@ class TeacherHomeScreen extends ConsumerWidget {
                       child: _LessonRow(
                         record: record,
                         homework: homework[record.studentId],
+                        previousHomework: ref
+                            .read(demoRepositoryProvider)
+                            .previousHomeworkFor(record.studentId),
                         quran: quran,
+                        sessionLocked: session.isCompleted,
                       ),
                     ),
                   );
@@ -290,12 +353,16 @@ class _LessonRow extends ConsumerWidget {
   const _LessonRow({
     required this.record,
     required this.homework,
+    required this.previousHomework,
     required this.quran,
+    required this.sessionLocked,
   });
 
   final AttendanceRecord record;
   final StudentHomework? homework;
+  final HomeworkAssignment? previousHomework;
   final QuranRepository quran;
+  final bool sessionLocked;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -334,18 +401,32 @@ class _LessonRow extends ConsumerWidget {
                 icon: const Icon(Icons.chat_outlined, color: AppColors.olive),
               ),
               TextButton.icon(
-                onPressed: () => _showAssignSheet(
-                  context,
-                  ref,
-                  studentId: record.studentId,
-                  studentName: record.studentName,
-                  existing: homework,
-                ),
+                onPressed: sessionLocked
+                    ? null
+                    : () => _showAssignSheet(
+                          context,
+                          ref,
+                          studentId: record.studentId,
+                          studentName: record.studentName,
+                          existing: homework,
+                        ),
                 icon: const Icon(Icons.assignment_outlined, size: 18),
                 label: const Text('واجب'),
               ),
             ],
           ),
+          if (previousHomework != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'واجب المحاضرة السابقة: '
+              '${quran.surahByNumber(previousHomework!.surahNumber).name} '
+              '${previousHomework!.fromAyah}–${previousHomework!.toAyah}',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.ink.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
           if (homework != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -366,25 +447,31 @@ class _LessonRow extends ConsumerWidget {
                 label: 'حاضر',
                 selected: record.status == AttendanceStatus.present,
                 color: AppColors.success,
-                onTap: () => ref
-                    .read(attendanceControllerProvider.notifier)
-                    .mark(record.studentId, AttendanceStatus.present),
+                onTap: sessionLocked
+                    ? null
+                    : () => ref
+                        .read(attendanceControllerProvider.notifier)
+                        .mark(record.studentId, AttendanceStatus.present),
               ),
               _chip(
                 label: 'متأخر',
                 selected: record.status == AttendanceStatus.late,
                 color: AppColors.gold,
-                onTap: () => ref
-                    .read(attendanceControllerProvider.notifier)
-                    .mark(record.studentId, AttendanceStatus.late),
+                onTap: sessionLocked
+                    ? null
+                    : () => ref
+                        .read(attendanceControllerProvider.notifier)
+                        .mark(record.studentId, AttendanceStatus.late),
               ),
               _chip(
                 label: 'غائب',
                 selected: record.status == AttendanceStatus.absent,
                 color: AppColors.danger,
-                onTap: () => ref
-                    .read(attendanceControllerProvider.notifier)
-                    .mark(record.studentId, AttendanceStatus.absent),
+                onTap: sessionLocked
+                    ? null
+                    : () => ref
+                        .read(attendanceControllerProvider.notifier)
+                        .mark(record.studentId, AttendanceStatus.absent),
               ),
             ],
           ),
@@ -404,9 +491,11 @@ class _LessonRow extends ConsumerWidget {
                   label: level.labelAr,
                   selected: selected,
                   color: AppColors.olive,
-                  onTap: () => ref
-                      .read(attendanceControllerProvider.notifier)
-                      .setMemorization(record.studentId, level),
+                  onTap: sessionLocked
+                      ? null
+                      : () => ref
+                          .read(attendanceControllerProvider.notifier)
+                          .setMemorization(record.studentId, level),
                 );
               }).toList(),
             ),
@@ -429,13 +518,54 @@ class _LessonRow extends ConsumerWidget {
                     max: 10,
                     divisions: 10,
                     label: '${record.behaviorScore ?? 5}',
-                    onChanged: (v) => ref
-                        .read(attendanceControllerProvider.notifier)
-                        .setBehavior(record.studentId, v.round()),
+                    onChanged: sessionLocked
+                        ? null
+                        : (v) => ref
+                            .read(attendanceControllerProvider.notifier)
+                            .setBehavior(record.studentId, v.round()),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            if (record.evaluationConfirmed)
+              Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 18,
+                    color: AppColors.success.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'تم تأكيد التقييم',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.success.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              )
+            else
+              FilledButton.tonalIcon(
+                onPressed: sessionLocked
+                    ? null
+                    : () {
+                        ref
+                            .read(attendanceControllerProvider.notifier)
+                            .confirmEvaluation(record.studentId);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'تم تأكيد تقييم ${record.studentName}',
+                            ),
+                          ),
+                        );
+                      },
+                icon: const Icon(Icons.task_alt_outlined, size: 18),
+                label: const Text('تأكيد التقييم'),
+              ),
           ] else
             const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -453,7 +583,7 @@ class _LessonRow extends ConsumerWidget {
     required String label,
     required bool selected,
     required Color color,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,

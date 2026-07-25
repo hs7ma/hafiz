@@ -125,6 +125,7 @@ class ClassSession {
     required this.sessionDate,
     required this.status,
     required this.startedAt,
+    this.endedAt,
   });
 
   final String id;
@@ -133,6 +134,9 @@ class ClassSession {
   final DateTime sessionDate;
   final SessionStatus status;
   final DateTime startedAt;
+  final DateTime? endedAt;
+
+  bool get isCompleted => status == SessionStatus.completed;
 }
 
 /// صف في جدول الدرس اليومي.
@@ -145,6 +149,7 @@ class AttendanceRecord {
     required this.status,
     this.memorizationLevel,
     this.behaviorScore,
+    this.evaluationConfirmedAt,
   });
 
   final String id;
@@ -154,6 +159,9 @@ class AttendanceRecord {
   final AttendanceStatus status;
   final MemorizationLevel? memorizationLevel;
   final int? behaviorScore;
+  final DateTime? evaluationConfirmedAt;
+
+  bool get evaluationConfirmed => evaluationConfirmedAt != null;
 
   bool get isAttending =>
       status == AttendanceStatus.present || status == AttendanceStatus.late;
@@ -162,8 +170,10 @@ class AttendanceRecord {
     AttendanceStatus? status,
     MemorizationLevel? memorizationLevel,
     int? behaviorScore,
+    DateTime? evaluationConfirmedAt,
     bool clearMemorization = false,
     bool clearBehavior = false,
+    bool clearEvaluationConfirmed = false,
   }) {
     final nextStatus = status ?? this.status;
     final attending = nextStatus == AttendanceStatus.present ||
@@ -184,8 +194,34 @@ class AttendanceRecord {
           : clearBehavior
               ? null
               : (behaviorScore ?? this.behaviorScore),
+      evaluationConfirmedAt: clearEvaluationConfirmed
+          ? null
+          : (evaluationConfirmedAt ?? this.evaluationConfirmedAt),
     );
   }
+}
+
+/// سجل واجب سابق (أرشيف) لعرض «واجب المحاضرة السابقة».
+class HomeworkAssignment {
+  const HomeworkAssignment({
+    required this.id,
+    required this.studentId,
+    required this.surahNumber,
+    required this.fromAyah,
+    required this.toAyah,
+    this.sessionId,
+    this.note = '',
+    required this.assignedAt,
+  });
+
+  final String id;
+  final String studentId;
+  final String? sessionId;
+  final int surahNumber;
+  final int fromAyah;
+  final int toAyah;
+  final String note;
+  final DateTime assignedAt;
 }
 
 /// واجب حفظ فردي لكل طالب.

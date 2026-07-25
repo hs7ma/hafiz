@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:excel/excel.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -14,15 +16,27 @@ String _statusAr(AttendanceStatus s) => switch (s) {
       AttendanceStatus.unmarked => 'غير محدد',
     };
 
-/// يبني ملف Excel احترافي لأرشيف الدروس ويشاركه.
-Future<void> exportLessonArchiveExcel({
+/// نتيجة تصدير أرشيف الدروس إلى ملف Excel.
+class LessonArchiveExportResult {
+  const LessonArchiveExportResult({
+    required this.fileName,
+    required this.savedPath,
+    required this.saveLocationLabelAr,
+  });
+
+  final String fileName;
+  final String savedPath;
+  final String saveLocationLabelAr;
+}
+
+Uint8List _buildLessonArchiveExcelBytes({
   required String teacherName,
   required String mosqueName,
   required DateTime from,
   required DateTime to,
   required String periodLabel,
   required List<LessonArchiveRow> rows,
-}) async {
+}) {
   final excel = Excel.createExcel();
   final defaultSheet = excel.getDefaultSheet();
   if (defaultSheet != null) {
@@ -115,14 +129,82 @@ Future<void> exportLessonArchiveExcel({
   if (bytes == null) {
     throw StateError('تعذّر إنشاء ملف Excel');
   }
+  return Uint8List.fromList(bytes);
+}
 
-  final dir = await getTemporaryDirectory();
+String _archiveFileBaseName() {
   final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-  final file = File('${dir.path}/hafiz_archive_$stamp.xlsx');
-  await file.writeAsBytes(bytes, flush: true);
+  return 'hafiz_archive_$stamp';
+}
 
+Future<LessonArchiveExportResult> _saveArchiveBytes(Uint8List bytes) async {
+  final baseName = _archiveFileBaseName();
+  final fileName = '$baseName.xlsx';
+
+  if (!kIsWeb && Platform.isAndroid) {
+    final savedPath = await FileSaver.instance.saveFile(
+      name: baseName,
+      bytes: bytes,
+      ext: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+    return LessonArchiveExportResult(
+      fileName: fileName,
+      savedPath: savedPath,
+      saveLocationLabelAr: 'مجلد التنزيلات',
+    );
+  }
+
+  final dir = await getApplicationDocumentsDirectory();
+  final file = File('${dir.path}/$fileName');
+  await file.writeAsBytes(bytes, flush: true);
+  return LessonArchiveExportResult(
+    fileName: fileName,
+    savedPath: file.path,
+    saveLocationLabelAr: 'ملفات التطبيق',
+  );
+}
+
+/// يبني ملف Excel ويحفظه على الجهاز (التنزيلات على أندرويد).
+Future<LessonArchiveExportResult> exportLessonArchiveExcel({
+  required String teacherName,
+  required String mosqueName,
+  required DateTime from,
+  required DateTime to,
+  required String periodLabel,
+  required List<LessonArchiveRow> rows,
+}) async {
+  final bytes = _buildLessonArchiveExcelBytes(
+    teacherName: teacherName,
+    mosqueName: mosqueName,
+    from: from,
+    to: to,
+    periodLabel: periodLabel,
+    rows: rows,
+  );
+  return _saveArchiveBytes(bytes);
+}
+
+/// مشاركة ملف أرشيف محفوظ مسبقاً.
+Future<void> shareLessonArchiveFile({
+  required LessonArchiveExportResult result,
+  required String teacherName,
+  required String periodLabel,
+  required DateTime from,
+  required DateTime to,
+}) async {
+  final dateFmt = DateFormat('yyyy/MM/dd', 'ar');
+  final rangeLabel =
+      '${dateFmt.format(from)} — ${dateFmt.format(to)} ($periodLabel)';
   await Share.shareXFiles(
-    [XFile(file.path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+    [
+      XFile(
+        result.savedPath,
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        name: result.fileName,
+      ),
+    ],
     subject: 'أرشيف دروس حافظ — $periodLabel',
     text: 'أرشيف دروس حلقة $teacherName ($rangeLabel)',
   );

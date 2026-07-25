@@ -358,18 +358,23 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
     QuranRepository quran,
   ) {
     return _runAudio(() {
-      final resumeAt =
-          _playingSurah == surah &&
-              _playingAyah != null &&
-              _playingAyah! >= scopeFrom &&
-              _playingAyah! <= scopeTo
-          ? _playingAyah
-          : null;
-      return _ensureAudio(quran).listen(
+      final player = _ensureAudio(quran);
+      int? startAyah;
+      if (_playingSurah == surah && _playingAyah != null) {
+        final ayah = _playingAyah!;
+        if (ayah >= scopeFrom && ayah <= scopeTo) {
+          if (player.isCompleted && player.canNext) {
+            startAyah = ayah + 1;
+          } else {
+            startAyah = ayah;
+          }
+        }
+      }
+      return player.listen(
         surah: surah,
         fromAyah: scopeFrom,
         toAyah: scopeTo,
-        startAyah: resumeAt,
+        startAyah: startAyah,
       );
     });
   }
@@ -576,13 +581,16 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
     final palette = MushafPalette.of(_theme);
     final playingHere = _playingSurah == null || _playingSurah == surahNumber;
 
-    // نطاق الاستماع: واجب اليوم إن كان على هذه السورة، وإلا السورة كاملة.
-    // هكذا يتوفّر وضع «كلي» لكل سورة لا للواجب وحده.
+    // إبراز الواجب بصرياً؛ الاستماع على السورة كاملة لتجنّب قفل التلاوة عند toAyah.
     final ayahCount = surah.ayahCount;
-    final scopeFrom = homeworkHere ? from!.clamp(1, ayahCount) : 1;
-    final scopeTo = homeworkHere ? to!.clamp(scopeFrom, ayahCount) : ayahCount;
+    final highlightFrom = homeworkHere ? from!.clamp(1, ayahCount) : null;
+    final highlightTo = homeworkHere ? to!.clamp(highlightFrom!, ayahCount) : null;
+    const audioFrom = 1;
+    final audioTo = ayahCount;
+    final scopeFrom = audioFrom;
+    final scopeTo = audioTo;
     final scopeLabel = homeworkHere
-        ? 'واجب اليوم: الآيات ${arabicIndic(scopeFrom)}–${arabicIndic(scopeTo)}'
+        ? 'الاستماع: السورة كاملة • واجب اليوم: ${arabicIndic(highlightFrom!)}–${arabicIndic(highlightTo!)}'
         : 'السورة كاملة • ${arabicIndic(ayahCount)} آية';
 
     for (var i = 1; i <= ayahs.length; i++) {
@@ -804,8 +812,8 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                 palette: palette,
                                 ayahKeys: _ayahKeys,
                                 playingAyah: playingHere ? _playingAyah : null,
-                                highlightFrom: from,
-                                highlightTo: to,
+                                highlightFrom: highlightFrom,
+                                highlightTo: highlightTo,
                                 progressAyah:
                                     progress?.surahNumber == surahNumber
                                     ? progress?.ayahNumber

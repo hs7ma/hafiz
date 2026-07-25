@@ -164,15 +164,36 @@ class _TeacherArchiveScreenState extends ConsumerState<TeacherArchiveScreen> {
                         ? null
                         : () async {
                             try {
-                              await exportLessonArchiveExcel(
+                              final result = await exportLessonArchiveExcel(
                                 teacherName: user?.fullName ?? '',
-                                mosqueName: repo.mosqueById(user?.mosqueId ?? '')
+                                mosqueName: repo
+                                        .mosqueById(user?.mosqueId ?? '')
                                         ?.name ??
                                     '',
                                 from: range.from,
                                 to: range.to,
                                 periodLabel: range.label,
                                 rows: rows,
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'تم حفظ الملف في ${result.saveLocationLabelAr}:\n${result.fileName}',
+                                  ),
+                                  action: SnackBarAction(
+                                    label: 'مشاركة',
+                                    onPressed: () {
+                                      shareLessonArchiveFile(
+                                        result: result,
+                                        teacherName: user?.fullName ?? '',
+                                        periodLabel: range.label,
+                                        from: range.from,
+                                        to: range.to,
+                                      );
+                                    },
+                                  ),
+                                ),
                               );
                             } catch (e) {
                               if (!context.mounted) return;

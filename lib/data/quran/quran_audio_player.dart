@@ -364,8 +364,9 @@ class QuranAudioPlayer {
 
     if (failure != null) {
       if (interrupted) {
-        // ليست عطلًا يستحق رسالة خطأ — فقط أعِد الحالة إلى وضع متّسق.
+        // ليست عطلًا يستحق رسالة خطأ — أعِد الحالة إلى وضع متّسق.
         _wantPlaying = false;
+        _listReady = false;
         _notify();
         return;
       }
@@ -407,6 +408,14 @@ class QuranAudioPlayer {
     required int toAyah,
   }) {
     if (hasSession && _bounds?.surah == surah && _currentAyah == ayah) {
+      if (_completed && ayah < toAyah) {
+        return listen(
+          surah: surah,
+          fromAyah: fromAyah,
+          toAyah: toAyah,
+          startAyah: ayah + 1,
+        );
+      }
       return _wantPlaying ? pause() : resume();
     }
     return listen(

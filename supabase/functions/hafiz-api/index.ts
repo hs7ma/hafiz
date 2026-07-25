@@ -1839,13 +1839,16 @@ Deno.serve(async (req) => {
 
       const studentIds = (students.data || []).map((s) => s.id);
       let student_homework: unknown[] = [];
+      let homework_assignments: unknown[] = [];
       let progress: unknown[] = [];
       if (studentIds.length) {
-        const [hw, pr] = await Promise.all([
+        const [hw, archived, pr] = await Promise.all([
           sb.from("student_homework").select("*").in("student_id", studentIds),
+          sb.from("homework_assignments").select("*").in("student_id", studentIds),
           sb.from("progress").select("*").in("student_id", studentIds),
         ]);
         student_homework = hw.data || [];
+        homework_assignments = archived.data || [];
         progress = pr.data || [];
       }
 
@@ -1857,6 +1860,7 @@ Deno.serve(async (req) => {
         sessions: sessions.data || [],
         attendance,
         student_homework,
+        homework_assignments,
         progress,
         teacher_class_schedules: schedules.data || [],
         server_time: new Date().toISOString(),
@@ -2318,6 +2322,9 @@ async function applyOp(
         memorization_level: p.memorization_level ?? null,
         behavior_score: p.behavior_score ?? null,
         marked_at: String(p.marked_at || now),
+        evaluation_confirmed_at: p.evaluation_confirmed_at
+          ? String(p.evaluation_confirmed_at)
+          : null,
       };
       const { error: err } = await sb.from("attendance").upsert(row);
       if (err) throw new Error(err.message || JSON.stringify(err));
@@ -2364,6 +2371,36 @@ async function applyOp(
         dedupeKey: `homework:${studentId}:${row.assigned_at}`,
         foregroundContext: "student_homework",
       });
+      break;
+    }
+    case "upsert_homework_assignment": {
+      const studentId = await ensureUuid(String(p.student_id || ""));
+      const student = await loadStudentInMosque(sb, studentId, mosqueId);
+      if (!student) throw new Error("الطالب غير موجود");
+      if (actor.role === "teacher" && String(student.teacher_id) !== actor.actor_id) {
+        throw new Error("غير مصرح بأرشفة واجب لطالب لمدرّس آخر");
+      }
+      if (actor.role === "student") throw new Error("غير مصرح");
+      const sessionIdRaw = p.session_id ? String(p.session_id) : "";
+      const sessionId = sessionIdRaw
+        ? await ensureUuid(sessionIdRaw)
+        : null;
+      if (sessionId) {
+        const session = await loadSessionInMosque(sb, sessionId, mosqueId);
+        if (!session) throw new Error("الجلسة غير موجودة");
+      }
+      const row = {
+        id: await ensureUuid(String(p.id || "")),
+        student_id: studentId,
+        session_id: sessionId,
+        surah_number: Number(p.surah_number),
+        from_ayah: Number(p.from_ayah),
+        to_ayah: Number(p.to_ayah),
+        note: String(p.note || ""),
+        assigned_at: String(p.assigned_at || now),
+      };
+      const { error: err } = await sb.from("homework_assignments").upsert(row);
+      if (err) throw new Error(err.message || JSON.stringify(err));
       break;
     }
     case "upsert_progress": {
