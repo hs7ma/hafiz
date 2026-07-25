@@ -205,27 +205,68 @@ class TeacherHomeScreen extends ConsumerWidget {
             if (session != null) ...[
               const SizedBox(height: 8),
               if (session.isCompleted)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: GlassCard(
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lock_outline,
-                          color: AppColors.olive.withValues(alpha: 0.85),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'تم إنهاء المحاضرة — العرض للقراءة فقط',
-                            style: TextStyle(
-                              color: AppColors.ink.withValues(alpha: 0.75),
-                              fontWeight: FontWeight.w600,
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 145),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      GlassCard(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              color: AppColors.olive.withValues(alpha: 0.85),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'تم إنهاء المحاضرة — العرض للقراءة فقط. يمكنك إعادة فتحها للتعديل.',
+                                style: TextStyle(
+                                  color: AppColors.ink.withValues(alpha: 0.75),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('إعادة فتح المحاضرة'),
+                              content: const Text(
+                                'ستُعاد فتح محاضرة اليوم ويمكنك تعديل الحضور والتقييم والواجبات ثم الحفظ.\n\n'
+                                'إن سبق إرسال تقرير لأولياء الأمور، أعد الإرسال بعد التعديل إن لزم.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('إلغاء'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('إعادة الفتح'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok != true || !context.mounted) return;
+                          ref
+                              .read(sessionControllerProvider.notifier)
+                              .reopenToday();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم إعادة فتح المحاضرة'),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.lock_open_rounded),
+                        label: const Text('إعادة فتح المحاضرة'),
+                      ),
+                    ],
                   ),
                 )
               else
@@ -238,7 +279,8 @@ class TeacherHomeScreen extends ConsumerWidget {
                         builder: (ctx) => AlertDialog(
                           title: const Text('إنهاء المحاضرة'),
                           content: const Text(
-                            'هل تريد إنهاء محاضرة اليوم؟ لن يمكن تعديل الحضور أو التقييم بعد الإنهاء.',
+                            'هل تريد إنهاء محاضرة اليوم؟ '
+                            'يمكنك إعادة فتحها لاحقاً إن احتجت تعديلاً.',
                           ),
                           actions: [
                             TextButton(

@@ -2234,6 +2234,50 @@ class DemoHafizRepository {
     return todaySession;
   }
 
+  /// Reopens today's completed session so attendance/evals/homework can be edited again.
+  ClassSession? reopenTodaySession() {
+    final session = todaySession;
+    if (session == null || !session.isCompleted) return session;
+    final user = currentUser;
+    if (user == null || session.teacherId != user.id) return session;
+
+    final today = DateTime.now();
+    final dateOnly = DateTime(today.year, today.month, today.day);
+    if (session.sessionDate.year != dateOnly.year ||
+        session.sessionDate.month != dateOnly.month ||
+        session.sessionDate.day != dateOnly.day) {
+      return session;
+    }
+
+    todaySession = ClassSession(
+      id: session.id,
+      mosqueId: session.mosqueId,
+      teacherId: session.teacherId,
+      sessionDate: session.sessionDate,
+      status: SessionStatus.active,
+      startedAt: session.startedAt,
+      endedAt: null,
+    );
+    _syncAttendanceRoster();
+    _afterWrite(
+      op: SyncOp(
+        id: _uuid.v4(),
+        type: 'upsert_session',
+        payload: {
+          'id': todaySession!.id,
+          'mosque_id': todaySession!.mosqueId,
+          'teacher_id': todaySession!.teacherId,
+          'session_date':
+              '${session.sessionDate.year.toString().padLeft(4, '0')}-${session.sessionDate.month.toString().padLeft(2, '0')}-${session.sessionDate.day.toString().padLeft(2, '0')}',
+          'status': 'active',
+          'started_at': todaySession!.startedAt.toIso8601String(),
+          'ended_at': null,
+        },
+      ),
+    );
+    return todaySession;
+  }
+
   void setAttendance(String studentId, AttendanceStatus status) {
     if (_sessionLocked) return;
     final index = attendance.indexWhere((a) => a.studentId == studentId);
@@ -2638,6 +2682,12 @@ class SessionController extends Notifier<ClassSession?> {
   void endToday() {
     state = ref.read(demoRepositoryProvider).endTodaySession();
     ref.read(attendanceControllerProvider.notifier).refresh();
+  }
+
+  void reopenToday() {
+    state = ref.read(demoRepositoryProvider).reopenTodaySession();
+    ref.read(attendanceControllerProvider.notifier).refresh();
+    ref.read(homeworkControllerProvider.notifier).refresh();
   }
 }
 
