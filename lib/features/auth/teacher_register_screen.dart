@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/whatsapp_report.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../data/remote/api_client.dart';
 import '../../data/repositories/demo_repository.dart';
+import '../../data/sync/sync_controller.dart';
 
 class TeacherInviteData {
   const TeacherInviteData({
@@ -22,7 +24,7 @@ class TeacherInviteData {
   final String message;
 }
 
-/// تسجيل مدرّس بعد التحقق من رمز الدعوة.
+/// تسجيل مدرّس بعد التحقق من رمز الدعوة ورقم الهاتف.
 class TeacherRegisterScreen extends ConsumerStatefulWidget {
   const TeacherRegisterScreen({super.key, required this.invite});
 
@@ -36,34 +38,131 @@ class TeacherRegisterScreen extends ConsumerStatefulWidget {
 class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
   bool _obscure = true;
   bool _busy = false;
+  bool _otpSent = false;
+  bool _phoneVerified = false;
   String? _error;
+  String? _info;
+  String? _verifiedPhone;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _phoneCtrl.dispose();
+    _otpCtrl.dispose();
     super.dispose();
+  }
+
+  String get _inviteMessage {
+    if (widget.invite.message.isNotEmpty) return widget.invite.message;
+    return 'أنت بصدد التسجيل كمدرّس لصالح «${widget.invite.mosqueName}»';
+  }
+
+  Future<void> _sendOtp() async {
+    setState(() {
+      _error = null;
+      _info = null;
+    });
+    final phone = toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964');
+    if (!isPlausibleWhatsAppPhone(phone)) {
+      setState(() => _error = 'رقم الهاتف غير صالح');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final data = await api.sendTeacherSmsOtp(
+        inviteToken: widget.invite.inviteToken,
+        phone: phone,
+      );
+      if (!mounted) return;
+      final delivery = data['delivery']?.toString() ?? 'sms';
+      final manualCode = data['code']?.toString();
+      setState(() {
+        _busy = false;
+        _otpSent = true;
+        _phoneVerified = false;
+        _verifiedPhone = null;
+        _info = data['message']?.toString() ??
+            (delivery == 'manual' && manualCode != null
+                ? 'رمز التحقق: $manualCode'
+                : 'أُرسل رمز التحقق إلى هاتفك');
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    setState(() {
+      _error = null;
+      _info = null;
+    });
+    final phone = toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964');
+    final code = _otpCtrl.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _error = 'أدخل رمز التحقق المكوّن من 6 أرقام');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.verifyTeacherSmsOtp(
+        inviteToken: widget.invite.inviteToken,
+        phone: phone,
+        code: code,
+      );
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _phoneVerified = true;
+        _verifiedPhone = phone;
+        _info = 'تم التحقق من رقم الهاتف. أكمل التسجيل.';
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.toString();
+      });
+    }
   }
 
   Future<void> _submit() async {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
+    if (!_phoneVerified || _verifiedPhone == null) {
+      setState(() => _error = 'تحقّق من رقم الهاتف أولاً');
+      return;
+    }
     setState(() => _busy = true);
     try {
-      final phone = toWhatsAppDigits(_phoneCtrl.text, countryCode: '964');
       final err = await ref.read(authControllerProvider.notifier).registerTeacher(
             inviteToken: widget.invite.inviteToken,
             fullName: _nameCtrl.text,
-            email: _emailCtrl.text,
             password: _passwordCtrl.text,
-            whatsappPhone: phone,
+            whatsappPhone: _verifiedPhone!,
           );
       if (!mounted) return;
       setState(() => _busy = false);
@@ -109,9 +208,7 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    widget.invite.message.isNotEmpty
-                        ? widget.invite.message
-                        : 'أنت بصدد التسجيل كمدرّس لصالح مسجد «${widget.invite.mosqueName}»',
+                    _inviteMessage,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.ink.withValues(alpha: 0.7),
@@ -138,18 +235,6 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                     ),
                     const SizedBox(height: 14),
                     AuthTextField(
-                      controller: _emailCtrl,
-                      label: 'البريد الإلكتروني',
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'مطلوب';
-                        if (!v.contains('@')) return 'بريد غير صالح';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    AuthTextField(
                       controller: _passwordCtrl,
                       label: 'كلمة المرور',
                       obscureText: _obscure,
@@ -164,7 +249,7 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'رقم واتساب',
+                      'رقم الهاتف',
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     const SizedBox(height: 6),
@@ -188,6 +273,7 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _phoneCtrl,
+                            enabled: !_phoneVerified,
                             keyboardType: TextInputType.phone,
                             textDirection: TextDirection.ltr,
                             inputFormatters: [
@@ -195,7 +281,7 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                               LengthLimitingTextInputFormatter(11),
                             ],
                             decoration: const InputDecoration(
-                              hintText: '7XXXXXXXX',
+                              hintText: '7768944556 أو 07768944556',
                               border: OutlineInputBorder(),
                             ),
                             validator: (v) {
@@ -211,6 +297,54 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: (_busy || _phoneVerified) ? null : _sendOtp,
+                        child: Text(_busy ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق'),
+                      ),
+                    ),
+                    if (_otpSent && !_phoneVerified) ...[
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _otpCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        textDirection: TextDirection.ltr,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: const InputDecoration(
+                          labelText: 'رمز التحقق',
+                          counterText: '',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 44,
+                        child: FilledButton(
+                          onPressed: _busy ? null : _verifyOtp,
+                          child: const Text('تحقق من الرمز'),
+                        ),
+                      ),
+                    ],
+                    if (_phoneVerified) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '✓ تم التحقق من رقم الهاتف',
+                        style: TextStyle(color: AppColors.oliveDark),
+                      ),
+                    ],
+                    if (_info != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _info!,
+                        style: TextStyle(
+                          color: AppColors.oliveDark,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                     if (_error != null) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -222,8 +356,10 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: _busy ? null : _submit,
-                        child: Text(_busy ? 'جارٍ التسجيل…' : 'إنشاء الحساب والدخول'),
+                        onPressed: (_busy || !_phoneVerified) ? null : _submit,
+                        child: Text(
+                          _busy ? 'جارٍ التسجيل…' : 'إنشاء الحساب والدخول',
+                        ),
                       ),
                     ),
                   ],

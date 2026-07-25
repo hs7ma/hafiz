@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/notifications/notification_widgets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../core/widgets/data_provenance_widgets.dart';
 import '../../data/repositories/demo_repository.dart';
 
 class AdminHomeScreen extends ConsumerWidget {
@@ -17,20 +19,51 @@ class AdminHomeScreen extends ConsumerWidget {
     final students = ref.watch(studentsControllerProvider);
     final repo = ref.watch(demoRepositoryProvider);
     final mosque = user == null ? null : repo.mosqueById(user.mosqueId);
+    final pendingSync = repo.pendingSyncCount;
+
+    final emptyTeacherRings = teachers
+        .where((t) => repo.studentsForTeacher(t.id).isEmpty)
+        .length;
+
+    final teacherLabel = teachers.isEmpty
+        ? 'لا مدرّسين بعد'
+        : arabicCount(
+            teachers.length,
+            one: 'مدرّس واحد',
+            two: 'مدرّسان',
+            many: 'مدرّسين',
+          );
+    final studentLabel = students.isEmpty
+        ? 'لا طلاب بعد'
+        : arabicCount(
+            students.length,
+            one: 'طالب واحد',
+            two: 'طالبان',
+            many: 'طالبًا',
+          );
+    final ringLabel = teachers.isEmpty
+        ? 'لا حلقات بعد'
+        : arabicCount(
+            teachers.length,
+            one: 'حلقة واحدة',
+            two: 'حلقتان',
+            many: 'حلقة',
+          );
 
     return SoftBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('إدارة الجامع'),
+          title: const Text('إدارة المسجد'),
           actions: [
+            const NotificationBellAction(),
             IconButton(
               tooltip: 'تغيير كلمة المرور',
               onPressed: () => _changePassword(context, ref),
               icon: const Icon(Icons.lock_outline_rounded),
             ),
             IconButton(
-              tooltip: 'خروج',
+              tooltip: 'تسجيل الخروج',
               onPressed: () {
                 ref.read(authControllerProvider.notifier).logout();
                 context.go('/welcome');
@@ -42,6 +75,8 @@ class AdminHomeScreen extends ConsumerWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
+            const SyncWarningBanner(),
+            const SizedBox(height: 12),
             FadeSlideIn(
               child: GlassCard(
                 child: Column(
@@ -56,38 +91,79 @@ class AdminHomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text('مرحبًا، ${user?.fullName ?? ''}'),
-                    const SizedBox(height: 4),
-                    Text(
-                      user?.email ?? '',
-                      style: TextStyle(
-                        color: AppColors.ink.withValues(alpha: 0.55),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
+            if (pendingSync > 0) ...[
+              const SizedBox(height: 12),
+              FadeSlideIn(
+                child: DashboardAttentionBanner(
+                  icon: Icons.cloud_upload_outlined,
+                  message: pendingSync == 1
+                      ? 'توجد بيانات بانتظار المزامنة. تأكد من اتصال الإنترنت ثم انتظر قليلًا.'
+                      : 'توجد $pendingSync بيانات بانتظار المزامنة. تأكد من اتصال الإنترنت ثم انتظر قليلًا.',
+                ),
+              ),
+            ],
+            if (emptyTeacherRings > 0) ...[
+              const SizedBox(height: 10),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 30),
+                child: DashboardAttentionBanner(
+                  icon: Icons.groups_outlined,
+                  message: emptyTeacherRings == 1
+                      ? 'حلقة واحدة بلا طلاب — اطلب من المدرّس إضافة طلاب أو راجع الحلقة.'
+                      : '$emptyTeacherRings حلقات بلا طلاب — اطلب من المدرّسين إضافة طلاب أو راجع الحلقات.',
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             FadeSlideIn(
-              delay: const Duration(milliseconds: 60),
+              delay: const Duration(milliseconds: 40),
+              child: Text(
+                'ملخص المسجد',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 50),
               child: Row(
                 children: [
                   Expanded(
-                    child: _countTile(
-                      context,
+                    child: DashboardStatTile(
                       label: 'المدرّسون',
-                      value: '${teachers.length}',
+                      value: teacherLabel,
+                      hint: teachers.isEmpty
+                          ? 'ادعُ مدرّسًا لبدء الحلقات'
+                          : 'يديرون حلقات التحفيظ',
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _countTile(
-                      context,
-                      label: 'الطلبة',
-                      value: '${students.length}',
+                    child: DashboardStatTile(
+                      label: 'الطلاب',
+                      value: studentLabel,
+                      hint: students.isEmpty
+                          ? 'يُضافون من لوحة المدرّس'
+                          : 'مسجّلون في حلقات المسجد',
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 55),
+              child: DashboardStatTile(
+                label: 'الحلقات',
+                value: ringLabel,
+                hint: emptyTeacherRings == 0
+                    ? 'جميع الحلقات فيها طلاب'
+                    : '$emptyTeacherRings ${emptyTeacherRings == 1 ? 'حلقة تحتاج' : 'حلقات تحتاج'} إضافة طلاب',
               ),
             ),
             const SizedBox(height: 18),
@@ -110,7 +186,14 @@ class AdminHomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'أنشئ رمز دعوة صالحاً لدقيقتين وشاركه مع المدرّس ليسجّل حسابه.',
+              'اضغط على مدرّس لعرض حلقته.',
+              style: TextStyle(
+                color: AppColors.ink.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'أنشئ رمز دعوة صالحاً لـ3 ساعات وشاركه مع المدرّس ليسجّل حسابه.',
               style: TextStyle(
                 color: AppColors.ink.withValues(alpha: 0.55),
               ),
@@ -159,7 +242,7 @@ class AdminHomeScreen extends ConsumerWidget {
                                 Text(
                                   count == 0
                                       ? 'لا طلبة بعد'
-                                      : '$count طالب',
+                                      : '$count طالب في حلقته',
                                   style: TextStyle(
                                     color: AppColors.ink.withValues(alpha: 0.65),
                                   ),
@@ -176,30 +259,6 @@ class AdminHomeScreen extends ConsumerWidget {
               }),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _countTile(
-    BuildContext context, {
-    required String label,
-    required String value,
-  }) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.oliveDark,
-                ),
-          ),
-        ],
       ),
     );
   }
@@ -243,7 +302,7 @@ class AdminHomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'تُحدَّث كلمة المرور في قاعدة البيانات ويمكنك الدخول بها لاحقاً.',
+                      'اختر كلمة مرور جديدة (8 أحرف على الأقل وتتضمن حرفاً ورقماً).',
                       style: TextStyle(
                         color: AppColors.ink.withValues(alpha: 0.65),
                         height: 1.4,
@@ -266,7 +325,13 @@ class AdminHomeScreen extends ConsumerWidget {
                       obscureText: obscure,
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'مطلوب';
-                        if (v.length < 6) return '6 أحرف على الأقل';
+                        if (v.length < 8) return '8 أحرف على الأقل';
+                        if (!RegExp(r'[A-Za-z]').hasMatch(v)) {
+                          return 'يجب أن تتضمن حرفاً';
+                        }
+                        if (!RegExp(r'\d').hasMatch(v)) {
+                          return 'يجب أن تتضمن رقماً';
+                        }
                         return null;
                       },
                     ),
@@ -346,7 +411,7 @@ class AdminHomeScreen extends ConsumerWidget {
     final code = invite['code']?.toString() ?? '';
     final expiresAt =
         DateTime.tryParse(invite['expires_at']?.toString() ?? '') ??
-            DateTime.now().add(const Duration(minutes: 2));
+            DateTime.now().add(const Duration(hours: 3));
 
     await showDialog<void>(
       context: context,
@@ -392,6 +457,7 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final hh = _left.inHours.toString().padLeft(2, '0');
     final mm = _left.inMinutes.remainder(60).toString().padLeft(2, '0');
     final ss = _left.inSeconds.remainder(60).toString().padLeft(2, '0');
     final expired = _left == Duration.zero;
@@ -409,7 +475,7 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '$mm:$ss',
+            '$hh:$mm:$ss',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -428,7 +494,7 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'رمز لمرة واحدة، يُخزَّن مشفّراً وينتهي خلال دقيقتين.',
+            'رمز لمرة واحدة — صالح لمدة 3 ساعات.',
             style: TextStyle(height: 1.4),
           ),
         ],

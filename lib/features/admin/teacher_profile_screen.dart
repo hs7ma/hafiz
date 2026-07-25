@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
@@ -31,7 +31,7 @@ class TeacherProfileScreen extends ConsumerWidget {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: const Text('بروفايل المدرّس'),
+            title: const Text('ملف المدرّس'),
             leading: const AppBackButton(fallback: '/admin'),
           ),
           body: const Center(child: Text('المدرّس غير موجود.')),
@@ -107,33 +107,6 @@ class TeacherProfileScreen extends ConsumerWidget {
                               fontWeight: FontWeight.w700,
                               color: AppColors.oliveDark,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'رمز الدخول: ${teacher.loginCode}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'نسخ الرمز',
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    ClipboardData(text: teacher.loginCode),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('تم نسخ الرمز'),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.copy_rounded),
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -274,6 +247,12 @@ class TeacherProfileScreen extends ConsumerWidget {
                                 ? 'لا واجب'
                                 : '${quran.surahByNumber(hw.surahNumber).name} ${hw.fromAyah}–${hw.toAyah}',
                           ),
+                          if (hw != null)
+                            _detailRow(
+                              'تاريخ التعيين',
+                              DateFormat('d/M/y HH:mm', 'ar')
+                                  .format(hw.assignedAt.toLocal()),
+                            ),
                         ],
                       ),
                     ),
@@ -379,13 +358,6 @@ class TeacherProfileScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'رمز الدخول يبقى كما هو: ${teacher.loginCode}',
-                  style: TextStyle(
-                    color: AppColors.ink.withValues(alpha: 0.65),
-                  ),
                 ),
                 const SizedBox(height: 14),
                 AuthTextField(

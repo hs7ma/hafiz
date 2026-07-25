@@ -1,14 +1,14 @@
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/router.dart';
+import 'core/audio/audio_platform.dart';
 import 'core/constants/supabase_config.dart';
+import 'core/notifications/notification_scope.dart';
+import 'core/notifications/push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/local/local_store.dart';
 import 'data/remote/api_client.dart';
@@ -17,10 +17,7 @@ import 'data/sync/sync_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // صوت التلاوة على Windows عبر media_kit (Android/iOS تستخدم just_audio الأصلي).
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-    JustAudioMediaKit.ensureInitialized(windows: true, linux: false);
-  }
+  await initializeAudioPlatform();
   await initializeDateFormatting('ar');
 
   if (SupabaseConfig.isConfigured) {
@@ -52,13 +49,11 @@ Future<void> main() async {
   await container.read(quranReadyProvider.future);
   if (backendReady) {
     container.read(syncControllerProvider);
+    await container.read(pushServiceProvider).initialize();
   }
 
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const HafizApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const HafizApp()),
   );
 }
 
@@ -84,7 +79,7 @@ class HafizApp extends ConsumerWidget {
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: child ?? const SizedBox.shrink(),
+          child: NotificationScope(child: child ?? const SizedBox.shrink()),
         );
       },
     );

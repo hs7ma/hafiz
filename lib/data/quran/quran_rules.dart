@@ -6,8 +6,9 @@
 /// 3) بقية السور: البسملة للافتتاح/العرض فقط وليست آية معدودة.
 ///    الآية 1 = أول آية بعد البسملة (مثل البقرة: الٓمٓ).
 /// 4) مجموع الآيات المعدودة = 6236.
-/// 5) تحذير صوتي: كثير من ملفات EveryAyah/CDN لآية 1 (غير الفاتحة)
-///    تبدأ بتسجيل البسملة ثم نص الآية؛ لذلك نتخطى مدة البسملة عند التشغيل.
+/// 5) الصوت: ملفات EveryAyah و cdn.islamic.network لآية 1 تحتوي نص الآية
+///    وحده بلا بسملة (تحقّقنا: 103001 ≈ ١٫٨ ثانية، 112001 ≈ ٣ ثوانٍ)، فلا
+///    يجوز اقتطاع أي مدة من بدايتها وإلا ضاع أول السورة.
 class QuranRules {
   static bool isFatiha(int surah) => surah == 1;
   static bool isTawbah(int surah) => surah == 9;
@@ -18,8 +19,4 @@ class QuranRules {
   /// هل يُعرض سطر بسملة غير معدود أعلى السورة؟
   static bool showsDisplayBismillah(int surah) =>
       !isFatiha(surah) && !isTawbah(surah);
-
-  /// هل تسجيل آية 1 غالبًا يبدأ بالبسملة في ملفات التلاوة الشائعة؟
-  static bool ayahOneAudioOftenStartsWithBasmala(int surah) =>
-      showsDisplayBismillah(surah);
 }

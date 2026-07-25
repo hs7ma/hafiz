@@ -26,19 +26,22 @@ String toWhatsAppDigits(
   var d = raw.replaceAll(RegExp(r'\D'), '');
   if (d.isEmpty) return '';
   if (d.startsWith('00')) d = d.substring(2);
-  if (d.startsWith('0')) {
-    d = '$countryCode${d.substring(1)}';
-  } else if (countryCode == '964' &&
-      d.length == 10 &&
-      d.startsWith('7') &&
-      !d.startsWith('964')) {
-    d = '964$d';
+  if (d.startsWith(countryCode) && d.length >= countryCode.length + 9) {
+    return d;
+  }
+  if (d.startsWith('0') && d.length >= 10) {
+    return '$countryCode${d.substring(1)}';
+  }
+  if (countryCode == '964' && d.length == 10 && d.startsWith('7')) {
+    return '$countryCode$d';
   }
   return d;
 }
 
-bool isPlausibleWhatsAppPhone(String digits) =>
-    digits.length >= 10 && digits.length <= 15;
+bool isPlausibleWhatsAppPhone(String phone) {
+  final d = toWhatsAppDigits(phone);
+  return d.length == 13 && d.startsWith('9647');
+}
 
 Future<String?> loadTeacherWhatsApp(String teacherId) async {
   final prefs = await SharedPreferences.getInstance();

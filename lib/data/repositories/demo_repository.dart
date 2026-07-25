@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/supabase_config.dart';
 import '../../core/utils/code_generators.dart';
 import '../../core/utils/id_utils.dart';
+import '../../core/utils/whatsapp_report.dart';
 import '../local/local_store.dart';
 import '../models/models.dart';
 import '../quran/quran_repository.dart';
@@ -65,6 +66,9 @@ class DemoHafizRepository {
   final Map<String, StudentHomework> homeworkByStudent = {};
   final Map<String, ReadingProgress> progressByStudent = {};
   final Map<String, MemorizationLevel> lastMemorizationByStudent = {};
+  TeacherClassSchedule? classSchedule;
+  final List<ClassSession> sessionHistory = [];
+  final List<LessonArchiveRow> attendanceHistory = [];
 
   int get pendingSyncCount => _syncQueue.length;
   bool get apiConfigured => _api.isConfigured;
@@ -152,7 +156,7 @@ class DemoHafizRepository {
   }
 
   Future<String> flushSyncQueue() async {
-    if (!SupabaseConfig.isConfigured) return 'Supabase غير مضبوط';
+    if (!SupabaseConfig.isConfigured) return 'الخادم غير مضبوط';
     if (_syncQueue.isEmpty) return 'لا عمليات معلّقة — البيانات محفوظة محليًا';
 
     final pending = _syncQueue.length;
@@ -218,7 +222,7 @@ class DemoHafizRepository {
         }
         return 'مزامنة جزئية — ${errors.length} أخطاء (الباقي محفوظ محليًا)';
       }
-      return 'تمت المزامنة مع Supabase بنجاح';
+      return 'تمت المزامنة مع الخادم بنجاح';
     } on SyncException {
       rethrow;
     } on ApiException catch (e) {
@@ -349,6 +353,228 @@ class DemoHafizRepository {
         ayahNumber: int.tryParse(p['ayah_number']?.toString() ?? '') ?? 1,
       );
     }
+
+    _mergeServerSessions(data);
+    _mergeServerSchedules(data);
+  }
+
+  void _mergeServerSchedules(Map<String, dynamic> data) {
+    final list = (data['teacher_class_schedules'] as List?) ?? const [];
+    final me = currentUser;
+    if (me == null) return;
+
+    String? teacherId;
+    if (me.role == UserRole.teacher) {
+      teacherId = me.id;
+    } else if (me.role == UserRole.student) {
+      for (final s in students) {
+        if (s.id == me.id) {
+          teacherId = s.teacherId;
+          break;
+        }
+      }
+    }
+
+    TeacherClassSchedule? found;
+    for (final raw in list.whereType<Map>()) {
+      final m = Map<String, dynamic>.from(raw);
+      final tid = m['teacher_id']?.toString() ?? '';
+      if (teacherId != null && tid != teacherId) continue;
+      final daysRaw = m['weekdays'];
+      final days = <int>[];
+      if (daysRaw is List) {
+        for (final d in daysRaw) {
+          final n = int.tryParse(d.toString());
+          if (n != null && n >= 1 && n <= 7) days.add(n);
+        }
+      }
+      days.sort();
+      found = TeacherClassSchedule(
+        id: m['id']?.toString() ?? _uuid.v4(),
+        mosqueId: m['mosque_id']?.toString() ?? me.mosqueId,
+        teacherId: tid,
+        lecturesPerWeek:
+            int.tryParse(m['lectures_per_week']?.toString() ?? '') ??
+                days.length,
+        weekdays: days,
+        active: m['active'] != false,
+      );
+      break;
+    }
+    if (found != null) classSchedule = found;
+  }
+
+  String _studentNameById(String id) {
+    for (final s in students) {
+      if (s.id == id) return s.fullName;
+    }
+    return '';
+  }
+
+  /// طلاب لديهم تعديل حضور لم يُرفع بعد؛ لا نستبدل تعديلهم بنسخة الخادم.
+  Set<String> _pendingAttendanceStudentIds() {
+    final ids = <String>{};
+    for (final op in _syncQueue) {
+      if (op.type != 'upsert_attendance') continue;
+      final sid = op.payload['student_id']?.toString();
+      if (sid != null && sid.isNotEmpty) ids.add(sid);
+    }
+    return ids;
+  }
+
+  /// دمج الجلسات والحضور من الخادم ليظهر عمل اليوم على بقية الأجهزة.
+  void _mergeServerSessions(Map<String, dynamic> data) {
+    final serverSessions = (data['sessions'] as List?) ?? const [];
+    final serverAttendance = (data['attendance'] as List?) ?? const [];
+    if (serverSessions.isEmpty && serverAttendance.isEmpty) return;
+
+    final pending = _pendingAttendanceStudentIds();
+    final me = currentUser;
+
+    final sessionDateById = <String, DateTime>{};
+    final sessionById = <String, Map<String, dynamic>>{};
+    for (final raw in serverSessions.whereType<Map>()) {
+      final s = Map<String, dynamic>.from(raw);
+      final id = s['id']?.toString() ?? '';
+      final date = DateTime.tryParse(s['session_date']?.toString() ?? '');
+      if (id.isEmpty || date == null) continue;
+      sessionDateById[id] = DateTime(date.year, date.month, date.day);
+      sessionById[id] = s;
+    }
+
+    // أرشيف محلي من لقطة الخادم (معزولة مسبقًا حسب الدور في الـ API).
+    final histSessions = <ClassSession>[];
+    for (final s in sessionById.values) {
+      final id = s['id']?.toString() ?? '';
+      final date = sessionDateById[id];
+      if (id.isEmpty || date == null) continue;
+      histSessions.add(
+        ClassSession(
+          id: id,
+          mosqueId: s['mosque_id']?.toString() ?? me?.mosqueId ?? '',
+          teacherId: s['teacher_id']?.toString() ?? '',
+          sessionDate: date,
+          status: sessionStatusFromWire(s['status']?.toString()),
+          startedAt:
+              DateTime.tryParse(s['started_at']?.toString() ?? '') ?? date,
+        ),
+      );
+    }
+    histSessions.sort((a, b) => b.sessionDate.compareTo(a.sessionDate));
+    sessionHistory
+      ..clear()
+      ..addAll(histSessions);
+
+    final histRows = <LessonArchiveRow>[];
+    for (final raw in serverAttendance.whereType<Map>()) {
+      final a = Map<String, dynamic>.from(raw);
+      final sid = a['student_id']?.toString() ?? '';
+      final sessionId = a['session_id']?.toString() ?? '';
+      final date = sessionDateById[sessionId];
+      if (sid.isEmpty || sessionId.isEmpty || date == null) continue;
+      final wire = a['memorization_level']?.toString();
+      histRows.add(
+        LessonArchiveRow(
+          sessionId: sessionId,
+          sessionDate: date,
+          studentId: sid,
+          studentName: _studentNameById(sid),
+          status: attendanceStatusFromWire(a['status']?.toString()),
+          memorizationLevel:
+              wire == null || wire.isEmpty ? null : memorizationFromWire(wire),
+          behaviorScore: int.tryParse(a['behavior_score']?.toString() ?? ''),
+        ),
+      );
+    }
+    histRows.sort((a, b) {
+      final byDate = b.sessionDate.compareTo(a.sessionDate);
+      if (byDate != 0) return byDate;
+      return a.studentName.compareTo(b.studentName);
+    });
+    attendanceHistory
+      ..clear()
+      ..addAll(histRows);
+
+    // آخر تقييم حفظ لكل طالب عبر كل الجلسات (تعتمده لوحات المتابعة).
+    final latestLevelDate = <String, DateTime>{};
+    for (final raw in serverAttendance.whereType<Map>()) {
+      final a = Map<String, dynamic>.from(raw);
+      final sid = a['student_id']?.toString() ?? '';
+      final wire = a['memorization_level']?.toString();
+      if (sid.isEmpty || wire == null || wire.isEmpty) continue;
+      if (pending.contains(sid)) continue;
+      final date = sessionDateById[a['session_id']?.toString() ?? ''];
+      if (date == null) continue;
+      final seen = latestLevelDate[sid];
+      if (seen != null && !date.isAfter(seen)) continue;
+      latestLevelDate[sid] = date;
+      lastMemorizationByStudent[sid] = memorizationFromWire(wire);
+    }
+
+    if (me == null || me.role != UserRole.teacher) return;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    Map<String, dynamic>? serverToday;
+    for (final s in sessionById.values) {
+      if (s['teacher_id']?.toString() != me.id) continue;
+      final date = sessionDateById[s['id']?.toString() ?? ''];
+      if (date == null) continue;
+      if (date.year != today.year ||
+          date.month != today.month ||
+          date.day != today.day) {
+        continue;
+      }
+      serverToday = s;
+      break;
+    }
+    if (serverToday == null) return;
+
+    final sessionId = serverToday['id']?.toString() ?? '';
+    if (sessionId.isEmpty) return;
+    todaySession = ClassSession(
+      id: sessionId,
+      mosqueId: serverToday['mosque_id']?.toString() ?? me.mosqueId,
+      teacherId: me.id,
+      sessionDate: today,
+      status: sessionStatusFromWire(serverToday['status']?.toString()),
+      startedAt:
+          DateTime.tryParse(serverToday['started_at']?.toString() ?? '') ??
+              today,
+    );
+
+    final localByStudent = {for (final a in attendance) a.studentId: a};
+    final merged = <AttendanceRecord>[];
+    for (final raw in serverAttendance.whereType<Map>()) {
+      final a = Map<String, dynamic>.from(raw);
+      if (a['session_id']?.toString() != sessionId) continue;
+      final sid = a['student_id']?.toString() ?? '';
+      if (sid.isEmpty) continue;
+      final local = localByStudent.remove(sid);
+      if (local != null && pending.contains(sid)) {
+        merged.add(local);
+        continue;
+      }
+      final wire = a['memorization_level']?.toString();
+      merged.add(
+        AttendanceRecord(
+          id: a['id']?.toString() ?? local?.id ?? _uuid.v4(),
+          sessionId: sessionId,
+          studentId: sid,
+          studentName: local?.studentName ?? _studentNameById(sid),
+          status: attendanceStatusFromWire(a['status']?.toString()),
+          memorizationLevel: wire == null || wire.isEmpty
+              ? null
+              : memorizationFromWire(wire),
+          behaviorScore: int.tryParse(a['behavior_score']?.toString() ?? ''),
+        ),
+      );
+    }
+    merged.addAll(localByStudent.values);
+    attendance
+      ..clear()
+      ..addAll(merged);
+    _syncAttendanceRoster();
   }
 
   LocalSnapshot _toSnapshot() {
@@ -439,6 +665,43 @@ class DemoHafizRepository {
             (a) => {
               'id': a.id,
               'session_id': a.sessionId,
+              'student_id': a.studentId,
+              'student_name': a.studentName,
+              'status': attendanceStatusWire(a.status),
+              'memorization_level': a.memorizationLevel == null
+                  ? null
+                  : memorizationWire(a.memorizationLevel!),
+              'behavior_score': a.behaviorScore,
+            },
+          )
+          .toList(),
+      classSchedule: classSchedule == null
+          ? null
+          : {
+              'id': classSchedule!.id,
+              'mosque_id': classSchedule!.mosqueId,
+              'teacher_id': classSchedule!.teacherId,
+              'lectures_per_week': classSchedule!.lecturesPerWeek,
+              'weekdays': classSchedule!.weekdays,
+              'active': classSchedule!.active,
+            },
+      sessionHistory: sessionHistory
+          .map(
+            (s) => {
+              'id': s.id,
+              'mosque_id': s.mosqueId,
+              'teacher_id': s.teacherId,
+              'session_date': s.sessionDate.toIso8601String(),
+              'status': sessionStatusWire(s.status),
+              'started_at': s.startedAt.toIso8601String(),
+            },
+          )
+          .toList(),
+      attendanceHistory: attendanceHistory
+          .map(
+            (a) => {
+              'session_id': a.sessionId,
+              'session_date': a.sessionDate.toIso8601String(),
               'student_id': a.studentId,
               'student_name': a.studentName,
               'status': attendanceStatusWire(a.status),
@@ -598,6 +861,75 @@ class DemoHafizRepository {
                 ? null
                 : int.tryParse(a['behavior_score'].toString()),
           ),
+        ),
+      );
+
+    if (snap.classSchedule != null) {
+      final c = snap.classSchedule!;
+      final days = <int>[];
+      final rawDays = c['weekdays'];
+      if (rawDays is List) {
+        for (final d in rawDays) {
+          final n = int.tryParse(d.toString());
+          if (n != null && n >= 1 && n <= 7) days.add(n);
+        }
+      }
+      days.sort();
+      classSchedule = TeacherClassSchedule(
+        id: c['id']?.toString() ?? '',
+        mosqueId: c['mosque_id']?.toString() ?? '',
+        teacherId: c['teacher_id']?.toString() ?? '',
+        lecturesPerWeek:
+            int.tryParse(c['lectures_per_week']?.toString() ?? '') ??
+                days.length,
+        weekdays: days,
+        active: c['active'] != false,
+      );
+    } else {
+      classSchedule = null;
+    }
+
+    sessionHistory
+      ..clear()
+      ..addAll(
+        snap.sessionHistory.map(
+          (s) => ClassSession(
+            id: s['id']?.toString() ?? '',
+            mosqueId: s['mosque_id']?.toString() ?? '',
+            teacherId: s['teacher_id']?.toString() ?? '',
+            sessionDate:
+                DateTime.tryParse(s['session_date']?.toString() ?? '') ??
+                    DateTime.now(),
+            status: sessionStatusFromWire(s['status']?.toString()),
+            startedAt:
+                DateTime.tryParse(s['started_at']?.toString() ?? '') ??
+                    DateTime.now(),
+          ),
+        ),
+      );
+
+    attendanceHistory
+      ..clear()
+      ..addAll(
+        snap.attendanceHistory.map(
+          (a) {
+            final wire = a['memorization_level']?.toString();
+            return LessonArchiveRow(
+              sessionId: a['session_id']?.toString() ?? '',
+              sessionDate:
+                  DateTime.tryParse(a['session_date']?.toString() ?? '') ??
+                      DateTime.now(),
+              studentId: a['student_id']?.toString() ?? '',
+              studentName: a['student_name']?.toString() ?? '',
+              status: attendanceStatusFromWire(a['status']?.toString()),
+              memorizationLevel: wire == null || wire.isEmpty
+                  ? null
+                  : memorizationFromWire(wire),
+              behaviorScore: a['behavior_score'] == null
+                  ? null
+                  : int.tryParse(a['behavior_score'].toString()),
+            );
+          },
         ),
       );
 
@@ -788,21 +1120,23 @@ class DemoHafizRepository {
 
   Future<String?> loginMosqueAdmin({
     required String mosqueName,
-    required String email,
+    required String phone,
     required String password,
   }) async {
     final name = mosqueName.trim();
-    final mail = email.trim().toLowerCase();
+    final digits = toWhatsAppDigits(phone.trim(), countryCode: '964');
+    String? resolvedEmail;
 
     if (SupabaseConfig.isConfigured) {
       try {
         final data = await _api.loginMosqueAdmin(
           mosqueName: name,
-          email: mail,
+          phone: digits,
           password: password,
         );
         final mosqueMap = Map<String, dynamic>.from(data['mosque'] as Map);
         final userMap = Map<String, dynamic>.from(data['user'] as Map);
+        resolvedEmail = userMap['email']?.toString();
         final mosque = Mosque(
           id: mosqueMap['id'].toString(),
           name: mosqueMap['name'].toString(),
@@ -816,7 +1150,7 @@ class DemoHafizRepository {
           fullName: userMap['full_name'].toString(),
           role: UserRole.mosqueAdmin,
           mosqueId: mosque.id,
-          email: userMap['email']?.toString() ?? mail,
+          email: resolvedEmail ?? '',
         );
         await _applyAuthSession(
           user: user,
@@ -836,7 +1170,7 @@ class DemoHafizRepository {
         // شبكة/خادم: نحاول الدخول من البيانات المحلية المحفوظة
         final offline = await _tryLocalMosqueAdminLogin(
           name: name,
-          mail: mail,
+          mail: resolvedEmail ?? digits,
           password: password,
         );
         if (offline == null) return null;
@@ -844,7 +1178,7 @@ class DemoHafizRepository {
       } catch (_) {
         final offline = await _tryLocalMosqueAdminLogin(
           name: name,
-          mail: mail,
+          mail: resolvedEmail ?? digits,
           password: password,
         );
         if (offline == null) return null;
@@ -854,7 +1188,7 @@ class DemoHafizRepository {
 
     return _tryLocalMosqueAdminLogin(
       name: name,
-      mail: mail,
+      mail: resolvedEmail ?? digits,
       password: password,
     );
   }
@@ -891,7 +1225,7 @@ class DemoHafizRepository {
   }) async {
     final user = currentUser;
     if (user == null || user.role != UserRole.mosqueAdmin) {
-      return 'يلزم تسجيل دخول إدارة الجامع';
+      return 'يلزم تسجيل دخول إدارة المسجد';
     }
     if (newPassword.trim().length < 6) {
       return 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل';
@@ -996,16 +1330,16 @@ class DemoHafizRepository {
     return null;
   }
 
-  Future<String?> loginTeacherEmail({
-    required String email,
+  Future<String?> loginTeacherPhone({
+    required String phone,
     required String password,
   }) async {
-    final mail = email.trim().toLowerCase();
+    final digits = toWhatsAppDigits(phone.trim(), countryCode: '964');
     if (!SupabaseConfig.isConfigured) {
-      return 'يلزم الاتصال بالخادم لدخول المدرّس بالبريد';
+      return 'يلزم الاتصال بالخادم لدخول المدرّس';
     }
     try {
-      final data = await _api.loginTeacherEmail(email: mail, password: password);
+      final data = await _api.loginTeacherPhone(phone: digits, password: password);
       final teacherMap = Map<String, dynamic>.from(data['teacher'] as Map);
       final mosqueMap = Map<String, dynamic>.from(data['mosque'] as Map);
       final mosque = Mosque(
@@ -1029,7 +1363,7 @@ class DemoHafizRepository {
         fullName: teacher.fullName,
         role: UserRole.teacher,
         mosqueId: mosque.id,
-        email: teacherMap['email']?.toString() ?? mail,
+        email: '',
       );
       await _applyAuthSession(user: user, mosque: mosque, teacher: teacher);
       return null;
@@ -1043,7 +1377,6 @@ class DemoHafizRepository {
   Future<String?> registerTeacher({
     required String inviteToken,
     required String fullName,
-    required String email,
     required String password,
     required String whatsappPhone,
   }) async {
@@ -1054,7 +1387,6 @@ class DemoHafizRepository {
       final data = await _api.registerTeacher(
         inviteToken: inviteToken,
         fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
         password: password,
         whatsappPhone: whatsappPhone,
       );
@@ -1081,7 +1413,7 @@ class DemoHafizRepository {
         fullName: teacher.fullName,
         role: UserRole.teacher,
         mosqueId: mosque.id,
-        email: teacherMap['email']?.toString() ?? email.trim().toLowerCase(),
+        email: '',
       );
       await _applyAuthSession(user: user, mosque: mosque, teacher: teacher);
       return null;
@@ -1186,6 +1518,9 @@ class DemoHafizRepository {
     currentMosque = null;
     todaySession = null;
     attendance.clear();
+    classSchedule = null;
+    sessionHistory.clear();
+    attendanceHistory.clear();
     persistLocal();
   }
 
@@ -1568,6 +1903,162 @@ class DemoHafizRepository {
       );
   }
 
+  /// يحفظ مواعيد دروس المدرّس الأسبوعية ويضعها في طابور المزامنة.
+  TeacherClassSchedule saveClassSchedule({
+    required int lecturesPerWeek,
+    required List<int> weekdays,
+  }) {
+    final user = currentUser;
+    if (user == null || user.role != UserRole.teacher) {
+      throw StateError('صلاحية المدرّس مطلوبة');
+    }
+    final days = [...{...weekdays.where((d) => d >= 1 && d <= 7)}]..sort();
+    if (lecturesPerWeek < 1 || lecturesPerWeek > 7) {
+      throw ArgumentError('عدد المحاضرات بين 1 و 7');
+    }
+    if (days.length != lecturesPerWeek) {
+      throw ArgumentError('اختر أيامًا بعدد المحاضرات الأسبوعية');
+    }
+    classSchedule = TeacherClassSchedule(
+      id: classSchedule?.id ?? _uuid.v4(),
+      mosqueId: user.mosqueId,
+      teacherId: user.id,
+      lecturesPerWeek: lecturesPerWeek,
+      weekdays: days,
+      active: true,
+    );
+    _afterWrite(
+      op: SyncOp(
+        id: _uuid.v4(),
+        type: 'upsert_teacher_schedule',
+        payload: {
+          'id': classSchedule!.id,
+          'mosque_id': classSchedule!.mosqueId,
+          'teacher_id': classSchedule!.teacherId,
+          'lectures_per_week': classSchedule!.lecturesPerWeek,
+          'weekdays': classSchedule!.weekdays,
+          'active': true,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+      ),
+    );
+    return classSchedule!;
+  }
+
+  bool get isTodayLectureDay {
+    final schedule = classSchedule;
+    if (schedule == null || !schedule.active) return false;
+    return schedule.isLectureDay(DateTime.now());
+  }
+
+  List<DateTime> upcomingLectureDates({int count = 4}) {
+    final schedule = classSchedule;
+    if (schedule == null || !schedule.active || schedule.weekdays.isEmpty) {
+      return const [];
+    }
+    final out = <DateTime>[];
+    var cursor = DateTime.now();
+    cursor = DateTime(cursor.year, cursor.month, cursor.day);
+    for (var i = 0; i < 60 && out.length < count; i++) {
+      final day = cursor.add(Duration(days: i));
+      if (schedule.isLectureDay(day)) out.add(day);
+    }
+    return out;
+  }
+
+  /// أرشيف دروس ضمن نطاق تاريخ — للمدرّس حلقته، وللطالب سجلّه فقط.
+  List<LessonArchiveRow> lessonArchiveForRange({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    final fromDay = DateTime(from.year, from.month, from.day);
+    final toDay = DateTime(to.year, to.month, to.day);
+    final me = currentUser;
+    if (me == null) return const [];
+
+    Iterable<LessonArchiveRow> rows = attendanceHistory.where((r) {
+      final d = DateTime(
+        r.sessionDate.year,
+        r.sessionDate.month,
+        r.sessionDate.day,
+      );
+      return !d.isBefore(fromDay) && !d.isAfter(toDay);
+    });
+
+    if (me.role == UserRole.teacher) {
+      final myIds = myStudents.map((s) => s.id).toSet();
+      rows = rows.where((r) => myIds.contains(r.studentId));
+    } else if (me.role == UserRole.student) {
+      rows = rows.where((r) => r.studentId == me.id);
+    } else {
+      return const [];
+    }
+    return rows.toList();
+  }
+
+  Future<void> refreshLessonArchive({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    if (!SupabaseConfig.isConfigured || !_api.hasHafizToken) return;
+    final fromStr =
+        '${from.year.toString().padLeft(4, '0')}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')}';
+    final toStr =
+        '${to.year.toString().padLeft(4, '0')}-${to.month.toString().padLeft(2, '0')}-${to.day.toString().padLeft(2, '0')}';
+    final data = await _api.fetchLessonArchive(from: fromStr, to: toStr);
+    final nameById = <String, String>{
+      for (final s in ((data['students'] as List?) ?? const []).whereType<Map>())
+        if ((s['id']?.toString() ?? '').isNotEmpty)
+          s['id'].toString(): s['full_name']?.toString() ?? '',
+    };
+    final sessionDateById = <String, DateTime>{};
+    for (final raw in ((data['sessions'] as List?) ?? const []).whereType<Map>()) {
+      final id = raw['id']?.toString() ?? '';
+      final date = DateTime.tryParse(raw['session_date']?.toString() ?? '');
+      if (id.isEmpty || date == null) continue;
+      sessionDateById[id] = DateTime(date.year, date.month, date.day);
+    }
+
+    final fromDay = DateTime(from.year, from.month, from.day);
+    final toDay = DateTime(to.year, to.month, to.day);
+    attendanceHistory.removeWhere((r) {
+      final d = DateTime(
+        r.sessionDate.year,
+        r.sessionDate.month,
+        r.sessionDate.day,
+      );
+      return !d.isBefore(fromDay) && !d.isAfter(toDay);
+    });
+
+    for (final raw
+        in ((data['attendance'] as List?) ?? const []).whereType<Map>()) {
+      final a = Map<String, dynamic>.from(raw);
+      final sid = a['student_id']?.toString() ?? '';
+      final sessionId = a['session_id']?.toString() ?? '';
+      final date = sessionDateById[sessionId];
+      if (sid.isEmpty || sessionId.isEmpty || date == null) continue;
+      final wire = a['memorization_level']?.toString();
+      attendanceHistory.add(
+        LessonArchiveRow(
+          sessionId: sessionId,
+          sessionDate: date,
+          studentId: sid,
+          studentName: nameById[sid] ?? _studentNameById(sid),
+          status: attendanceStatusFromWire(a['status']?.toString()),
+          memorizationLevel:
+              wire == null || wire.isEmpty ? null : memorizationFromWire(wire),
+          behaviorScore: int.tryParse(a['behavior_score']?.toString() ?? ''),
+        ),
+      );
+    }
+    attendanceHistory.sort((a, b) {
+      final byDate = b.sessionDate.compareTo(a.sessionDate);
+      if (byDate != 0) return byDate;
+      return a.studentName.compareTo(b.studentName);
+    });
+    await persistLocal();
+  }
+
   ClassSession startTodaySession() {
     final user = currentUser!;
     final today = DateTime.now();
@@ -1814,12 +2305,12 @@ class AuthController extends Notifier<AppUser?> {
 
   Future<String?> loginMosqueAdmin({
     required String mosqueName,
-    required String email,
+    required String phone,
     required String password,
   }) async {
     final err = await ref.read(demoRepositoryProvider).loginMosqueAdmin(
           mosqueName: mosqueName,
-          email: email,
+          phone: phone,
           password: password,
         );
     if (err == null) {
@@ -1854,16 +2345,17 @@ class AuthController extends Notifier<AppUser?> {
       ref.invalidate(sessionControllerProvider);
       ref.invalidate(attendanceControllerProvider);
       ref.invalidate(homeworkControllerProvider);
+      ref.invalidate(classScheduleControllerProvider);
     }
     return err;
   }
 
-  Future<String?> loginTeacherEmail({
-    required String email,
+  Future<String?> loginTeacherPhone({
+    required String phone,
     required String password,
   }) async {
-    final err = await ref.read(demoRepositoryProvider).loginTeacherEmail(
-          email: email,
+    final err = await ref.read(demoRepositoryProvider).loginTeacherPhone(
+          phone: phone,
           password: password,
         );
     if (err == null) {
@@ -1872,6 +2364,7 @@ class AuthController extends Notifier<AppUser?> {
       ref.invalidate(sessionControllerProvider);
       ref.invalidate(attendanceControllerProvider);
       ref.invalidate(homeworkControllerProvider);
+      ref.invalidate(classScheduleControllerProvider);
     }
     return err;
   }
@@ -1879,14 +2372,12 @@ class AuthController extends Notifier<AppUser?> {
   Future<String?> registerTeacher({
     required String inviteToken,
     required String fullName,
-    required String email,
     required String password,
     required String whatsappPhone,
   }) async {
     final err = await ref.read(demoRepositoryProvider).registerTeacher(
           inviteToken: inviteToken,
           fullName: fullName,
-          email: email,
           password: password,
           whatsappPhone: whatsappPhone,
         );
@@ -1912,6 +2403,7 @@ class AuthController extends Notifier<AppUser?> {
       state = ref.read(demoRepositoryProvider).currentUser;
       ref.invalidate(homeworkControllerProvider);
       ref.invalidate(progressControllerProvider);
+      ref.invalidate(classScheduleControllerProvider);
     }
     return err;
   }
@@ -1924,8 +2416,42 @@ class AuthController extends Notifier<AppUser?> {
     ref.invalidate(studentsControllerProvider);
     ref.invalidate(teachersControllerProvider);
     ref.invalidate(homeworkControllerProvider);
+    ref.invalidate(classScheduleControllerProvider);
   }
 }
+
+class ClassScheduleController extends Notifier<TeacherClassSchedule?> {
+  @override
+  TeacherClassSchedule? build() =>
+      ref.read(demoRepositoryProvider).classSchedule;
+
+  void refresh() {
+    state = ref.read(demoRepositoryProvider).classSchedule;
+  }
+
+  Future<String?> save({
+    required int lecturesPerWeek,
+    required List<int> weekdays,
+  }) async {
+    try {
+      state = ref.read(demoRepositoryProvider).saveClassSchedule(
+            lecturesPerWeek: lecturesPerWeek,
+            weekdays: weekdays,
+          );
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Bad state: ', '').replaceFirst(
+            'Invalid argument(s): ',
+            '',
+          );
+    }
+  }
+}
+
+final classScheduleControllerProvider =
+    NotifierProvider<ClassScheduleController, TeacherClassSchedule?>(
+  ClassScheduleController.new,
+);
 
 final authControllerProvider =
     NotifierProvider<AuthController, AppUser?>(AuthController.new);

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/models/models.dart';
 import '../data/repositories/demo_repository.dart';
+import '../core/notifications/notification_widgets.dart';
 import '../features/admin/admin_home_screen.dart';
 import '../features/admin/teacher_profile_screen.dart';
 import '../features/auth/mosque_register_screen.dart';
@@ -11,7 +12,9 @@ import '../features/auth/welcome_screen.dart';
 import '../features/mushaf/mushaf_screens.dart';
 import '../features/student/student_screens.dart';
 import '../features/teacher/students_manage_screen.dart';
+import '../features/teacher/teacher_archive_screen.dart';
 import '../features/teacher/teacher_home_screen.dart';
+import '../features/teacher/teacher_settings_screen.dart';
 
 String _homeFor(UserRole role) => switch (role) {
       UserRole.mosqueAdmin => '/admin',
@@ -60,6 +63,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationCenterScreen(),
+        redirect: (context, state) {
+          if (user == null) return '/welcome';
+          return null;
+        },
+      ),
+      GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminHomeScreen(),
         redirect: (context, state) {
@@ -90,6 +101,32 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/teacher/students',
         builder: (context, state) => const StudentsManageScreen(),
+        redirect: (context, state) {
+          if (user == null || user.role != UserRole.teacher) {
+            return '/welcome';
+          }
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/teacher/settings',
+        builder: (context, state) => const TeacherSettingsScreen(),
+        redirect: (context, state) {
+          if (user == null || user.role != UserRole.teacher) {
+            return '/welcome';
+          }
+          return null;
+        },
+        routes: [
+          GoRoute(
+            path: 'schedule',
+            builder: (context, state) => const TeacherScheduleEditorScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/teacher/archive',
+        builder: (context, state) => const TeacherArchiveScreen(),
         redirect: (context, state) {
           if (user == null || user.role != UserRole.teacher) {
             return '/welcome';

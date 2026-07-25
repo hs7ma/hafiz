@@ -1,7 +1,7 @@
 name: hafiz
 description: تطبيق حافظ — تنظيم حضور وحفظ القرآن في حلقات المساجد
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.4+5
 
 environment:
   sdk: ^3.8.1
@@ -31,6 +31,11 @@ dependencies:
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.5
   flutter_local_notifications: ^19.2.1
+  just_audio_background: ^0.0.1-beta.17
+  audio_service: ^0.18.19
+  audio_session: ^0.2.4
+  excel: ^4.0.6
+  share_plus: ^10.1.4
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/notifications/notification_widgets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../data/models/models.dart';
@@ -27,6 +28,9 @@ class TeacherHomeScreen extends ConsumerWidget {
 
     final presentCount =
         attendance.where((a) => a.status == AttendanceStatus.present).length;
+    final schedule = ref.watch(classScheduleControllerProvider);
+    final isLectureDay =
+        ref.watch(demoRepositoryProvider).isTodayLectureDay;
 
     return SoftBackground(
       child: Scaffold(
@@ -34,6 +38,12 @@ class TeacherHomeScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('لوحة المدرّس'),
           actions: [
+            const NotificationBellAction(),
+            IconButton(
+              tooltip: 'الإعدادات',
+              onPressed: () => context.push('/teacher/settings'),
+              icon: const Icon(Icons.settings_outlined),
+            ),
             IconButton(
               tooltip: 'إدارة الطلبة',
               onPressed: () => context.push('/teacher/students'),
@@ -51,6 +61,8 @@ class TeacherHomeScreen extends ConsumerWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
+            const SyncWarningBanner(),
+            const SizedBox(height: 12),
             FadeSlideIn(
               child: GlassCard(
                 child: Column(
@@ -130,6 +142,35 @@ class TeacherHomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 120),
+              child: GlassCard(
+                onTap: () => context.push('/teacher/settings'),
+                child: Row(
+                  children: [
+                    Icon(
+                      schedule == null
+                          ? Icons.event_busy_outlined
+                          : Icons.event_available_outlined,
+                      color: AppColors.olive,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        schedule == null
+                            ? 'لم يُضبط جدول المواعيد — اضبطه من الإعدادات'
+                            : isLectureDay
+                                ? 'اليوم يوم حلقة مجدول'
+                                : 'لا حلقة مجدولة اليوم',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_left),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               'جلسة اليوم',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -148,7 +189,7 @@ class TeacherHomeScreen extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(
-                  session == null ? 'بدء محاضرة اليوم' : 'فتح محاضرة اليوم',
+                  session == null ? 'بدء جلسة اليوم' : 'فتح جلسة اليوم',
                 ),
               ),
             ),

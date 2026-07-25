@@ -8,13 +8,14 @@ import '../../core/constants/supabase_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/whatsapp_report.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../core/notifications/push_service.dart';
 import '../../data/iraq_locations.dart';
 import '../../data/remote/api_client.dart';
 import '../../data/sync/sync_controller.dart';
 
-const _kLastRegistrationEmail = 'hafiz_last_registration_email';
+const _kLastRegistrationPhone = 'hafiz_last_registration_phone';
 
-/// تسجيل جامع جديد من داخل التطبيق: تحقق بريد ← بيانات ← انتظار موافقة.
+/// تسجيل مسجد جديد من داخل التطبيق: تحقق الهاتف ← بيانات ← انتظار موافقة.
 class MosqueRegisterScreen extends ConsumerStatefulWidget {
   const MosqueRegisterScreen({super.key});
 
@@ -24,21 +25,20 @@ class MosqueRegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
-  final _emailFormKey = GlobalKey<FormState>();
+  final _phoneFormKey = GlobalKey<FormState>();
   final _otpFormKey = GlobalKey<FormState>();
   final _detailsFormKey = GlobalKey<FormState>();
 
-  final _emailCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   final _mosqueCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _areaCtrl = TextEditingController();
 
-  int _step = 0; // 0 email, 1 otp, 2 details, 3 done
+  int _step = 0; // 0 phone, 1 otp, 2 details, 3 done
   bool _busy = false;
   String? _error;
   String? _info;
-  String? _verifiedEmail;
+  String? _verifiedPhone;
   String? _registrationProof;
   String? _governorate;
   String? _district;
@@ -48,7 +48,6 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
     _otpCtrl.dispose();
     _mosqueCtrl.dispose();
     _phoneCtrl.dispose();
@@ -63,25 +62,25 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
       _error = null;
       _info = null;
     });
-    if (!_emailFormKey.currentState!.validate()) return;
+    if (!_phoneFormKey.currentState!.validate()) return;
     if (!_supabaseReady) {
       setState(() => _error = 'الخادم غير مضبوط — تعذّر إرسال رمز التحقق');
       return;
     }
     setState(() => _busy = true);
     try {
-      final email = _emailCtrl.text.trim().toLowerCase();
+      final digits = toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964');
       final api = ref.read(apiClientProvider);
-      final data = await api.sendRegistrationEmailOtp(email);
+      final data = await api.sendRegistrationSmsOtp(digits);
       if (!mounted) return;
-      final delivery = data['delivery']?.toString() ?? 'email';
+      final delivery = data['delivery']?.toString() ?? 'sms';
       setState(() {
         _busy = false;
         _step = 1;
         _info = data['message']?.toString() ??
             (delivery == 'manual'
                 ? 'اطلب الرمز من إدارة المنصة ثم أدخله هنا.'
-                : 'أُرسل رمز التحقق إلى بريدك. أدخله خلال دقائق.');
+                : 'أُرسل رمز التحقق إلى هاتفك. أدخله خلال دقائق.');
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -106,10 +105,10 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
     if (!_otpFormKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      final email = _emailCtrl.text.trim().toLowerCase();
+      final digits = toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964');
       final api = ref.read(apiClientProvider);
-      final data = await api.verifyRegistrationEmailOtp(
-        email: email,
+      final data = await api.verifyRegistrationSmsOtp(
+        phone: digits,
         code: _otpCtrl.text.trim(),
       );
       if (!mounted) return;
@@ -123,10 +122,10 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
       }
       setState(() {
         _busy = false;
-        _verifiedEmail = email;
+        _verifiedPhone = digits;
         _registrationProof = proof;
         _step = 2;
-        _info = 'تم التحقق من البريد. أكمل بيانات المسجد.';
+        _info = 'تم التحقق من الهاتف. أكمل بيانات المسجد.';
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -170,7 +169,11 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
     final localPhone = _phoneCtrl.text.trim();
     final digits = toWhatsAppDigits(localPhone, countryCode: '964');
     if (!isPlausibleWhatsAppPhone(digits)) {
-      setState(() => _error = 'رقم واتساب غير صالح');
+      setState(() => _error = 'رقم الهاتف غير صالح');
+      return;
+    }
+    if (_verifiedPhone != null && digits != _verifiedPhone) {
+      setState(() => _error = 'رقم الهاتف لا يطابق الرقم المتحقّق منه');
       return;
     }
 
@@ -180,7 +183,6 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
       final data = await api.submitMosqueRegistration(
         registrationProof: proof,
         mosqueName: _mosqueCtrl.text.trim(),
-        email: _verifiedEmail ?? _emailCtrl.text.trim().toLowerCase(),
         whatsappPhone: digits,
         governorate: _governorate!,
         district: _district!,
@@ -189,10 +191,8 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
         teachersRange: _teachersRange!,
       );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kLastRegistrationEmail,
-        _verifiedEmail ?? _emailCtrl.text.trim().toLowerCase(),
-      );
+      await prefs.setString(_kLastRegistrationPhone, digits);
+      ref.read(pushServiceProvider).bindRegistrationPhone(digits);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -229,7 +229,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: const AppBackButton(fallback: '/welcome'),
-          title: const Text('تسجيل جامع جديد'),
+          title: const Text('تسجيل مسجد جديد'),
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
@@ -255,7 +255,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
                   style: const TextStyle(color: AppColors.danger),
                 ),
               ),
-            if (_step == 0) _buildEmailStep(),
+            if (_step == 0) _buildPhoneStep(),
             if (_step == 1) _buildOtpStep(),
             if (_step == 2) _buildDetailsStep(districts),
             if (_step == 3) _buildDoneStep(),
@@ -265,37 +265,72 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
     );
   }
 
-  Widget _buildEmailStep() {
+  Widget _buildPhoneStep() {
     return GlassCard(
       child: Form(
-        key: _emailFormKey,
+        key: _phoneFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'تحقق من البريد',
+              'تحقق من الهاتف',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 6),
             Text(
-              'سنرسل رمزاً رقمياً (6 أرقام) إلى بريدك لتأكيد هويتك قبل إكمال طلب التسجيل. أدخل الرمز في التطبيق — لا حاجة لفتح أي رابط.',
+              'سنرسل رمزاً رقمياً (6 أرقام) إلى هاتفك لتأكيد هويتك قبل إكمال طلب التسجيل.',
               style: TextStyle(color: AppColors.ink.withValues(alpha: 0.65)),
             ),
             const SizedBox(height: 18),
-            AuthTextField(
-              controller: _emailCtrl,
-              label: 'البريد الإلكتروني',
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.email],
-              onEditingComplete: _busy ? null : _sendOtp,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'مطلوب';
-                if (!v.contains('@')) return 'بريد غير صالح';
-                return null;
-              },
+            Text(
+              'رقم الهاتف',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.softGreen.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    '+964',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    textDirection: TextDirection.ltr,
+                    textInputAction: TextInputAction.done,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(11),
+                    ],
+                    onEditingComplete: _busy ? null : _sendOtp,
+                    decoration: const InputDecoration(
+                      hintText: '7768944556 أو 07768944556',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'مطلوب';
+                      final d = toWhatsAppDigits(v, countryCode: '964');
+                      if (!isPlausibleWhatsAppPhone(d)) return 'رقم غير صالح';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             SizedBox(
@@ -330,7 +365,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'أُرسل إلى ${_emailCtrl.text.trim()}',
+              'أُرسل إلى +${_verifiedPhone ?? toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964')}',
               style: TextStyle(color: AppColors.ink.withValues(alpha: 0.65)),
             ),
             const SizedBox(height: 18),
@@ -368,7 +403,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
                         _error = null;
                         _info = null;
                       }),
-              child: const Text('تغيير البريد'),
+              child: const Text('تغيير الرقم'),
             ),
             TextButton(
               onPressed: _busy ? null : _sendOtp,
@@ -395,7 +430,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'البريد المتحقّق: ${_verifiedEmail ?? ''}',
+              'الهاتف المتحقّق: +${_verifiedPhone ?? ''}',
               style: TextStyle(color: AppColors.ink.withValues(alpha: 0.65)),
             ),
             const SizedBox(height: 18),
@@ -410,7 +445,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
             ),
             const SizedBox(height: 14),
             Text(
-              'رقم واتساب',
+              'رقم الهاتف (متحقّق)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 6),
@@ -435,22 +470,13 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _phoneCtrl,
+                    enabled: false,
                     keyboardType: TextInputType.phone,
                     textDirection: TextDirection.ltr,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(11),
-                    ],
                     decoration: const InputDecoration(
-                      hintText: '7XXXXXXXX',
+                      hintText: '7768944556 أو 07768944556',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'مطلوب';
-                      final d = toWhatsAppDigits(v, countryCode: '964');
-                      if (!isPlausibleWhatsAppPhone(d)) return 'رقم غير صالح';
-                      return null;
-                    },
                   ),
                 ),
               ],
@@ -541,7 +567,7 @@ class _MosqueRegisterScreenState extends ConsumerState<MosqueRegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.mark_email_read_outlined,
+          Icon(Icons.check_circle_outline,
               size: 48, color: AppColors.oliveDark),
           const SizedBox(height: 12),
           Text(
@@ -592,30 +618,32 @@ class MosqueRequestStatusScreen extends ConsumerStatefulWidget {
 class _MosqueRequestStatusScreenState
     extends ConsumerState<MosqueRequestStatusScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
   String? _message;
   Map<String, dynamic>? _request;
   String? _statusLabel;
+  String? _loginCode;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedEmail();
+    _loadSavedPhone();
   }
 
-  Future<void> _loadSavedEmail() async {
+  Future<void> _loadSavedPhone() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_kLastRegistrationEmail);
+    final saved = prefs.getString(_kLastRegistrationPhone);
     if (saved != null && saved.isNotEmpty && mounted) {
-      _emailCtrl.text = saved;
+      final local = saved.startsWith('964') ? saved.substring(3) : saved;
+      _phoneCtrl.text = local;
     }
   }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -625,22 +653,24 @@ class _MosqueRequestStatusScreenState
       _message = null;
       _request = null;
       _statusLabel = null;
+      _loginCode = null;
     });
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      final digits =
+          toWhatsAppDigits(_phoneCtrl.text.trim(), countryCode: '964');
       final api = ref.read(apiClientProvider);
-      final data = await api.registrationRequestStatus(_emailCtrl.text);
+      final data = await api.registrationRequestStatus(digits);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kLastRegistrationEmail,
-        _emailCtrl.text.trim().toLowerCase(),
-      );
+      await prefs.setString(_kLastRegistrationPhone, digits);
+      ref.read(pushServiceProvider).bindRegistrationPhone(digits);
       if (!mounted) return;
       final found = data['found'] == true;
       setState(() {
         _busy = false;
         _message = data['message']?.toString();
+        _loginCode = data['login_code']?.toString();
         if (found && data['request'] is Map) {
           _request = Map<String, dynamic>.from(data['request'] as Map);
           _statusLabel = data['status_label']?.toString();
@@ -682,24 +712,65 @@ class _MosqueRequestStatusScreenState
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'أدخل البريد المستخدم في طلب التسجيل لمعرفة حالته.',
+                      'أدخل رقم الهاتف المستخدم في طلب التسجيل لمعرفة حالته.',
                       style: TextStyle(
                         color: AppColors.ink.withValues(alpha: 0.7),
                         height: 1.45,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    AuthTextField(
-                      controller: _emailCtrl,
-                      label: 'البريد الإلكتروني',
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.done,
-                      onEditingComplete: _busy ? null : _check,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'مطلوب';
-                        if (!v.contains('@')) return 'بريد غير صالح';
-                        return null;
-                      },
+                    Text(
+                      'رقم الهاتف',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.softGreen.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Text(
+                            '+964',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            textDirection: TextDirection.ltr,
+                            textInputAction: TextInputAction.done,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(11),
+                            ],
+                            onEditingComplete: _busy ? null : _check,
+                            decoration: const InputDecoration(
+                              hintText: '7768944556 أو 07768944556',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'مطلوب';
+                              final d =
+                                  toWhatsAppDigits(v, countryCode: '964');
+                              if (!isPlausibleWhatsAppPhone(d)) {
+                                return 'رقم غير صالح';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
@@ -756,14 +827,66 @@ class _MosqueRequestStatusScreenState
                       value: _request!['teachers_range']?.toString() ?? '—',
                     ),
                     if (_request!['status'] == 'approved') ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'استخدم شاشة «إدارة الجامع» للدخول ببيانات واتساب.',
-                        style: TextStyle(
-                          color: AppColors.oliveDark,
-                          height: 1.4,
+                      if (_loginCode != null && _loginCode!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.softGreen.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.oliveDark.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'رمز الدخول لإدارة المسجد',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.oliveDark,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              SelectableText(
+                                _loginCode!,
+                                textAlign: TextAlign.center,
+                                textDirection: TextDirection.ltr,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 2,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'استخدمه مع اسم المسجد ورقم الهاتف في شاشة «إدارة المسجد». يختفي بعد أول تسجيل دخول ناجح.',
+                                style: TextStyle(
+                                  color: AppColors.ink.withValues(alpha: 0.7),
+                                  height: 1.45,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ] else ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'تمت الموافقة. إذا سبق لك تسجيل الدخول، استخدم كلمة المرور التي عيّنتها. وإلا تواصل مع إدارة حافظ.',
+                          style: TextStyle(
+                            color: AppColors.oliveDark,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => context.go('/welcome'),
                         child: const Text('الذهاب لتسجيل الدخول'),
@@ -790,7 +913,7 @@ class _StepHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['البريد', 'التحقق', 'البيانات', 'النتيجة'];
+    final labels = ['الهاتف', 'التحقق', 'البيانات', 'النتيجة'];
     return Row(
       children: [
         for (var i = 0; i < labels.length; i++) ...[

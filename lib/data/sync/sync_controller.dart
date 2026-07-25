@@ -118,7 +118,7 @@ class SyncController extends Notifier<SyncStatus> {
     return SyncStatus(
       phase: SupabaseConfig.isConfigured ? SyncPhase.idle : SyncPhase.offline,
       message: SupabaseConfig.isConfigured
-          ? 'جاهز للمزامنة مع Supabase'
+          ? 'جاهز للمزامنة مع الخادم'
           : 'وضع محلي فقط (بدون خادم)',
     );
   }

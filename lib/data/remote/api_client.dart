@@ -66,6 +66,7 @@ class ApiClient {
     Map<String, dynamic>? body,
     Map<String, String>? query,
     String? accessToken,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     if (!isConfigured) {
       throw StateError('لم يُضبط SUPABASE_URL / SUPABASE_ANON_KEY');
@@ -78,25 +79,21 @@ class ApiClient {
     late http.Response res;
     switch (method) {
       case 'GET':
-        res = await _client.get(uri, headers: headers).timeout(
-              const Duration(seconds: 20),
-            );
+        res = await _client.get(uri, headers: headers).timeout(timeout);
       case 'POST':
         res = await _client
             .post(uri, headers: headers, body: jsonEncode(body ?? {}))
-            .timeout(const Duration(seconds: 20));
+            .timeout(timeout);
       case 'PUT':
         res = await _client
             .put(uri, headers: headers, body: jsonEncode(body ?? {}))
-            .timeout(const Duration(seconds: 20));
+            .timeout(timeout);
       case 'PATCH':
         res = await _client
             .patch(uri, headers: headers, body: jsonEncode(body ?? {}))
-            .timeout(const Duration(seconds: 20));
+            .timeout(timeout);
       case 'DELETE':
-        res = await _client.delete(uri, headers: headers).timeout(
-              const Duration(seconds: 20),
-            );
+        res = await _client.delete(uri, headers: headers).timeout(timeout);
       default:
         throw UnsupportedError(method);
     }
@@ -156,34 +153,34 @@ class ApiClient {
     );
   }
 
-  Future<Map<String, dynamic>> sendRegistrationEmailOtp(String email) {
+  Future<Map<String, dynamic>> sendRegistrationSmsOtp(String phone) {
     return _json(
       'POST',
-      '/api/registration/email-otp/send',
-      body: {'email': email.trim().toLowerCase()},
+      '/api/registration/sms-otp/send',
+      body: {'phone': phone.trim()},
+      timeout: const Duration(seconds: 60),
     );
   }
 
-  Future<Map<String, dynamic>> verifyRegistrationEmailOtp({
-    required String email,
+  Future<Map<String, dynamic>> verifyRegistrationSmsOtp({
+    required String phone,
     required String code,
   }) {
     return _json(
       'POST',
-      '/api/registration/email-otp/verify',
+      '/api/registration/sms-otp/verify',
       body: {
-        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
         'code': code.trim(),
       },
     );
   }
 
-  /// إرسال طلب تسجيل جامع بعد التحقق من البريد (proof أو جلسة Auth).
+  /// إرسال طلب تسجيل جامع بعد التحقق من الهاتف.
   Future<Map<String, dynamic>> submitMosqueRegistration({
     String? accessToken,
     String? registrationProof,
     required String mosqueName,
-    required String email,
     required String whatsappPhone,
     required String governorate,
     required String district,
@@ -197,7 +194,6 @@ class ApiClient {
       accessToken: accessToken,
       body: {
         'mosque_name': mosqueName,
-        'email': email,
         'whatsapp_phone': whatsappPhone,
         'governorate': governorate,
         'district': district,
@@ -210,18 +206,18 @@ class ApiClient {
     );
   }
 
-  /// متابعة حالة طلب التسجيل بالبريد.
-  Future<Map<String, dynamic>> registrationRequestStatus(String email) {
+  /// متابعة حالة طلب التسجيل بالهاتف.
+  Future<Map<String, dynamic>> registrationRequestStatus(String phone) {
     return _json(
       'GET',
       '/api/registration-requests/status',
-      query: {'email': email.trim().toLowerCase()},
+      query: {'phone': phone.trim()},
     );
   }
 
   Future<Map<String, dynamic>> loginMosqueAdmin({
     required String mosqueName,
-    required String email,
+    required String phone,
     required String password,
   }) {
     return _json(
@@ -229,7 +225,7 @@ class ApiClient {
       '/api/auth/login',
       body: {
         'mosque_name': mosqueName,
-        'email': email,
+        'phone': phone.trim(),
         'password': password,
       },
     );
@@ -249,16 +245,47 @@ class ApiClient {
     );
   }
 
-  Future<Map<String, dynamic>> loginTeacherEmail({
-    required String email,
+  Future<Map<String, dynamic>> loginTeacherPhone({
+    required String phone,
     required String password,
   }) {
     return _json(
       'POST',
       '/api/auth/teacher-login',
       body: {
-        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
         'password': password,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> sendTeacherSmsOtp({
+    required String inviteToken,
+    required String phone,
+  }) {
+    return _json(
+      'POST',
+      '/api/teachers/sms-otp/send',
+      body: {
+        'invite_token': inviteToken,
+        'phone': phone.trim(),
+      },
+      timeout: const Duration(seconds: 60),
+    );
+  }
+
+  Future<Map<String, dynamic>> verifyTeacherSmsOtp({
+    required String inviteToken,
+    required String phone,
+    required String code,
+  }) {
+    return _json(
+      'POST',
+      '/api/teachers/sms-otp/verify',
+      body: {
+        'invite_token': inviteToken,
+        'phone': phone.trim(),
+        'code': code.trim(),
       },
     );
   }
@@ -278,7 +305,6 @@ class ApiClient {
   Future<Map<String, dynamic>> registerTeacher({
     required String inviteToken,
     required String fullName,
-    required String email,
     required String password,
     required String whatsappPhone,
   }) {
@@ -288,7 +314,6 @@ class ApiClient {
       body: {
         'invite_token': inviteToken,
         'full_name': fullName,
-        'email': email,
         'password': password,
         'whatsapp_phone': whatsappPhone,
       },
@@ -347,6 +372,18 @@ class ApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchLessonArchive({
+    required String from,
+    required String to,
+    String? teacherId,
+  }) {
+    final query = <String, String>{'from': from, 'to': to};
+    if (teacherId != null && teacherId.isNotEmpty) {
+      query['teacher_id'] = teacherId;
+    }
+    return _json('GET', '/api/archive/lessons', query: query);
+  }
+
   Future<Map<String, dynamic>> changeMosqueAdminPassword({
     required String currentPassword,
     required String newPassword,
@@ -357,6 +394,64 @@ class ApiClient {
       body: {
         'current_password': currentPassword,
         'new_password': newPassword,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> listNotifications({int limit = 50}) {
+    return _json(
+      'GET',
+      '/api/notifications',
+      query: {'limit': '$limit'},
+    );
+  }
+
+  Future<Map<String, dynamic>> markNotificationRead(String id) {
+    return _json('POST', '/api/notifications/$id/read');
+  }
+
+  Future<Map<String, dynamic>> markAllNotificationsRead() {
+    return _json('POST', '/api/notifications/read-all');
+  }
+
+  Future<Map<String, dynamic>> registerDeviceToken({
+    required String fcmToken,
+    required String deviceId,
+    String? foregroundContext,
+    String? recipientType,
+    String? recipientId,
+    String? mosqueId,
+    String appId = 'hafiz',
+  }) {
+    return _json(
+      'POST',
+      '/api/device-tokens',
+      body: {
+        'fcm_token': fcmToken,
+        'device_id': deviceId,
+        'app_id': appId,
+        if (foregroundContext != null) 'foreground_context': foregroundContext,
+        if (recipientType != null) 'recipient_type': recipientType,
+        if (recipientId != null) 'recipient_id': recipientId,
+        if (mosqueId != null) 'mosque_id': mosqueId,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> unregisterDeviceToken({
+    required String deviceId,
+    required String recipientType,
+    required String recipientId,
+    String appId = 'hafiz',
+  }) {
+    return _json(
+      'POST',
+      '/api/device-tokens/unregister',
+      body: {
+        'device_id': deviceId,
+        'app_id': appId,
+        'recipient_type': recipientType,
+        'recipient_id': recipientId,
       },
     );
   }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/notifications/notification_widgets.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../data/models/models.dart';
 import '../../data/repositories/demo_repository.dart';
 import '../mushaf/mushaf_controller.dart';
 
@@ -49,7 +52,7 @@ class StudentShell extends ConsumerWidget {
               label: 'المصحف',
             ),
             NavigationDestination(
-              icon: SvgActionIcon('assets/svg/icon_attendance.svg', size: 22),
+              icon: Icon(Icons.trending_up_rounded),
               label: 'تقدمي',
             ),
           ],
@@ -61,6 +64,10 @@ class StudentShell extends ConsumerWidget {
 
 class StudentHomeScreen extends ConsumerWidget {
   const StudentHomeScreen({super.key});
+
+  static String _formatAssignedAt(DateTime dt) {
+    return DateFormat('d/M/y HH:mm', 'ar').format(dt.toLocal());
+  }
 
   void _openMushaf(WidgetRef ref, BuildContext context, {int? surah}) {
     if (surah != null) {
@@ -83,8 +90,9 @@ class StudentHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('واجهة الطالب'),
+        title: const Text('اليوم'),
         actions: [
+          const NotificationBellAction(),
           IconButton(
             onPressed: () {
               ref.read(authControllerProvider.notifier).logout();
@@ -97,6 +105,8 @@ class StudentHomeScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
+          const SyncWarningBanner(),
+          const SizedBox(height: 12),
           FadeSlideIn(
             child: GlassCard(
               child: Column(
@@ -173,6 +183,14 @@ class StudentHomeScreen extends ConsumerWidget {
                         Text(
                           'من الآية ${assignment.fromAyah} إلى ${assignment.toAyah}',
                           style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'عُيّن ${_formatAssignedAt(assignment.assignedAt)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.ink.withValues(alpha: 0.55),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         Wrap(
@@ -271,6 +289,13 @@ class StudentHomeScreen extends ConsumerWidget {
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
 
+  String _statusAr(AttendanceStatus s) => switch (s) {
+        AttendanceStatus.present => 'حاضر',
+        AttendanceStatus.absent => 'غائب',
+        AttendanceStatus.late => 'متأخر',
+        AttendanceStatus.unmarked => '—',
+      };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(progressControllerProvider);
@@ -278,6 +303,15 @@ class ProgressScreen extends ConsumerWidget {
     final homeworkMap = ref.watch(homeworkControllerProvider);
     final assignment = user == null ? null : homeworkMap[user.id];
     final quran = ref.watch(quranRepositoryProvider);
+    final repo = ref.watch(demoRepositoryProvider);
+    final schedule = ref.watch(classScheduleControllerProvider);
+    final upcoming = repo.upcomingLectureDates(count: 4);
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0);
+    final archive = repo.lessonArchiveForRange(from: monthStart, to: monthEnd);
+    final dateFmt = DateFormat('EEEE d MMMM', 'ar');
+    final shortFmt = DateFormat('d/M', 'ar');
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -292,7 +326,7 @@ class ProgressScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SvgActionIcon('assets/svg/icon_attendance.svg', size: 34),
+                const SvgActionIcon('assets/svg/icon_homework.svg', size: 34),
                 const SizedBox(height: 12),
                 Text(
                   'موضع الحفظ الحالي',
@@ -303,7 +337,7 @@ class ProgressScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   progress == null
-                      ? 'من المصحف: اضغط مطولًا على رقم الآية لحفظ الموضع.'
+                      ? 'اضغط مطولًا على رقم الآية في المصحف لحفظ موضعك.'
                       : '${quran.surahByNumber(progress.surahNumber).name} — الآية ${progress.ayahNumber}',
                 ),
               ],
@@ -328,6 +362,93 @@ class ProgressScreen extends ConsumerWidget {
                       ? 'لا يوجد واجب بعد.'
                       : '${quran.surahByNumber(assignment.surahNumber).name} من ${assignment.fromAyah} إلى ${assignment.toAyah}',
                 ),
+                if (assignment != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'عُيّن ${StudentHomeScreen._formatAssignedAt(assignment.assignedAt)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.ink.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.event_repeat_outlined, color: AppColors.olive),
+                const SizedBox(height: 12),
+                Text(
+                  'جدول محاضرات حلقتي',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                if (schedule == null || !schedule.active)
+                  const Text('لم يضبط المدرّس مواعيد الحلقة بعد.')
+                else ...[
+                  Text(
+                    schedule.weekdays
+                        .map((d) => arabicWeekdayLabels[d] ?? '$d')
+                        .join(' · '),
+                    style: TextStyle(
+                      color: AppColors.olive.withValues(alpha: 0.95),
+                    ),
+                  ),
+                  if (upcoming.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'القادمة',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    ...upcoming.map(
+                      (d) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text('• ${dateFmt.format(d)}'),
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.history_edu_outlined, color: AppColors.olive),
+                const SizedBox(height: 12),
+                Text(
+                  'أرشيفي هذا الشهر',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                if (archive.isEmpty)
+                  const Text('لا توجد سجلات حضور لهذا الشهر بعد.')
+                else
+                  ...archive.take(20).map(
+                    (r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(shortFmt.format(r.sessionDate))),
+                          Text(_statusAr(r.status)),
+                          const SizedBox(width: 10),
+                          Text(r.memorizationLevel?.labelAr ?? '—'),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,9 +51,7 @@ class _MushafIndexScreenState extends ConsumerState<MushafIndexScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: Divider(
-                    color: AppColors.gold.withValues(alpha: 0.5),
-                  ),
+                  child: Divider(color: AppColors.gold.withValues(alpha: 0.5)),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -66,9 +65,7 @@ class _MushafIndexScreenState extends ConsumerState<MushafIndexScreen> {
                   ),
                 ),
                 Expanded(
-                  child: Divider(
-                    color: AppColors.gold.withValues(alpha: 0.5),
-                  ),
+                  child: Divider(color: AppColors.gold.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -81,20 +78,21 @@ class _MushafIndexScreenState extends ConsumerState<MushafIndexScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: GlassCard(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  onTap: () {
-                    ref.read(mushafSurahProvider.notifier).open(s.number);
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/student/mushaf');
-                    }
-                  },
+            onTap: () {
+              ref.read(mushafSurahProvider.notifier).open(s.number);
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/student/mushaf');
+              }
+            },
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor:
-                      selected ? AppColors.olive : AppColors.softGreen,
+                  backgroundColor: selected
+                      ? AppColors.olive
+                      : AppColors.softGreen,
                   child: Text(
                     '${s.number}',
                     style: TextStyle(
@@ -113,8 +111,7 @@ class _MushafIndexScreenState extends ConsumerState<MushafIndexScreen> {
                         'سورة ${s.name}',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color:
-                              selected ? AppColors.oliveDark : AppColors.ink,
+                          color: selected ? AppColors.oliveDark : AppColors.ink,
                         ),
                       ),
                       Text(
@@ -163,9 +160,9 @@ class _MushafIndexScreenState extends ConsumerState<MushafIndexScreen> {
               'المرجع: tanzil.net — يُمنع تعديل النص',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.ink.withValues(alpha: 0.55),
-                    height: 1.4,
-                  ),
+                color: AppColors.ink.withValues(alpha: 0.55),
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -186,9 +183,14 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
   QuranAudioPlayer? _audio;
   int? _playingSurah;
   int? _playingAyah;
-  bool _busy = false;
   bool _playing = false;
   bool _paused = false;
+  bool _buffering = false;
+  bool _completed = false;
+  String? _audioError;
+  String? _lastShownAudioError;
+  bool _canPrev = false;
+  bool _canNext = false;
   ListenMode _listenMode = ListenMode.continuous;
   String _reciterId = QuranAudioSources.reciters.first.id;
 
@@ -199,14 +201,27 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
   final Map<int, GlobalKey> _ayahKeys = {};
   int? _shownSurah;
   Timer? _scrollSaveTimer;
+  AppLifecycleListener? _lifecycle;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadPrefs());
-    unawaited(
-      ref.read(mushafSurahProvider.notifier).restoreLastOpened(),
-    );
+    unawaited(ref.read(mushafSurahProvider.notifier).restoreLastOpened());
+    // على الويب يستمر just_audio في التبويبات الخلفية عبر عناصر Audio منفصلة
+    // عن الـ DOM؛ نوقف التشغيل عند إخفاء الصفحة حتى لا يبقى صوت «شبح».
+    if (kIsWeb) {
+      _lifecycle = AppLifecycleListener(
+        onHide: _pauseForBackground,
+        onPause: _pauseForBackground,
+      );
+    }
+  }
+
+  void _pauseForBackground() {
+    final audio = _audio;
+    if (audio == null || !audio.isPlaying) return;
+    unawaited(audio.pause());
   }
 
   Future<void> _loadPrefs() async {
@@ -214,27 +229,49 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
     final theme = await MushafPrefs.theme();
     final reciter = await MushafPrefs.reciterId();
     if (!mounted) return;
+    QuranReciter? savedReciter;
     setState(() {
       _fontSize = font;
       _theme = theme;
       if (reciter != null &&
           QuranAudioSources.reciters.any((r) => r.id == reciter)) {
         _reciterId = reciter;
+        savedReciter = QuranAudioSources.byId(reciter);
       }
     });
+    final audio = _audio;
+    if (audio != null &&
+        savedReciter != null &&
+        audio.reciter.id != savedReciter!.id) {
+      await _runAudio(() => audio.setReciter(savedReciter!));
+    }
   }
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _scrollSaveTimer?.cancel();
     _scrollController.dispose();
-    unawaited(_audio?.dispose() ?? Future<void>.value());
+    final audio = _audio;
+    _audio = null;
+    if (audio != null) {
+      unawaited(() async {
+        await audio.stop();
+        await audio.dispose();
+      }());
+    }
     super.dispose();
   }
 
   void _syncPlaybackFlags(QuranAudioPlayer audio) {
     _playing = audio.isPlaying;
     _paused = audio.isPaused;
+    _buffering = audio.isBuffering;
+    _completed = audio.isCompleted;
+    _audioError = audio.errorMessage;
+    if (_audioError == null) _lastShownAudioError = null;
+    _canPrev = audio.canPrev;
+    _canNext = audio.canNext;
     _playingSurah = audio.currentSurah;
     _playingAyah = audio.currentAyah;
     _listenMode = audio.mode;
@@ -243,115 +280,117 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
   QuranAudioPlayer _ensureAudio(QuranRepository quran) {
     final existing = _audio;
     if (existing != null) return existing;
-    final player = QuranAudioPlayer(quran);
-    player.reciter = QuranAudioSources.byId(_reciterId);
-    player.mode = _listenMode;
+    final player = QuranAudioPlayer(
+      quran,
+      initialReciter: QuranAudioSources.byId(_reciterId),
+      initialMode: _listenMode,
+    );
     player.ensureListeners(
       onAyahChanged: (surah, ayah) {
         if (!mounted) return;
-        setState(() {
-          _playingAyah = ayah;
-          _syncPlaybackFlags(player);
-        });
-        _scrollToAyah(ayah);
+        setState(() => _syncPlaybackFlags(player));
+        if (_shownSurah == surah) _scrollToAyah(ayah);
       },
       onStateChanged: () {
         if (!mounted) return;
         setState(() => _syncPlaybackFlags(player));
+        _showAudioErrorIfNeeded();
       },
     );
     _audio = player;
     return player;
   }
 
+  /// ينفّذ أمر تشغيل ويعرض رسالة عند الفشل.
+  ///
+  /// لا يوجد هنا أي حارس «مشغول»: المشغّل نفسه يسلسل الأوامر ويلغي القديم
+  /// منها، فإسقاط ضغطات المستخدم السريعة لم يعد لازمًا.
   Future<void> _runAudio(Future<void> Function() action) async {
-    if (_busy) return;
-    setState(() => _busy = true);
     try {
       await action();
-      final audio = _audio;
-      if (mounted && audio != null) {
-        setState(() => _syncPlaybackFlags(audio));
-      }
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تعذّر تشغيل التلاوة. تحقق من الإنترنت.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (!mounted) return;
+      final audio = _audio;
+      setState(() {
+        if (audio != null) _syncPlaybackFlags(audio);
+        _audioError ??=
+            'تعذّر تشغيل التلاوة. تحقق من الإنترنت ثم أعد المحاولة.';
+      });
+      _showAudioErrorIfNeeded();
+    }
+    final audio = _audio;
+    if (mounted && audio != null) {
+      setState(() => _syncPlaybackFlags(audio));
     }
   }
 
-  Future<void> _toggleAudio(int surah, int ayah, QuranRepository quran) async {
-    await _runAudio(() async {
-      final audio = _ensureAudio(quran);
-      audio.mode = ListenMode.singleAyah;
-      await audio.toggleAyah(surah, ayah);
-    });
+  void _showAudioErrorIfNeeded() {
+    final message = _audioError;
+    if (!mounted || message == null || message == _lastShownAudioError) return;
+    _lastShownAudioError = message;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _startHomeworkListen(
+  Future<void> _toggleAudio(
     int surah,
-    int from,
-    int to,
-    QuranRepository quran, {
-    int? startAyah,
-  }) async {
-    await _runAudio(() async {
-      final audio = _ensureAudio(quran);
-      audio.mode = _listenMode;
-      await audio.playHomework(
+    int ayah,
+    int scopeFrom,
+    int scopeTo,
+    QuranRepository quran,
+  ) {
+    return _runAudio(
+      () => _ensureAudio(quran).toggleAyah(
         surah: surah,
-        fromAyah: from,
-        toAyah: to,
-        startAyah: startAyah ?? _playingAyah,
+        ayah: ayah,
+        fromAyah: scopeFrom,
+        toAyah: scopeTo,
+      ),
+    );
+  }
+
+  /// يبدأ الاستماع للنطاق المعروض، ويكمل من الآية المتوقفة إن كانت داخله.
+  Future<void> _startListen(
+    int surah,
+    int scopeFrom,
+    int scopeTo,
+    QuranRepository quran,
+  ) {
+    return _runAudio(() {
+      final resumeAt =
+          _playingSurah == surah &&
+              _playingAyah != null &&
+              _playingAyah! >= scopeFrom &&
+              _playingAyah! <= scopeTo
+          ? _playingAyah
+          : null;
+      return _ensureAudio(quran).listen(
+        surah: surah,
+        fromAyah: scopeFrom,
+        toAyah: scopeTo,
+        startAyah: resumeAt,
       );
     });
-    if (_playingAyah != null) _scrollToAyah(_playingAyah!);
   }
 
-  Future<void> _pauseAudio() async {
-    final audio = _audio;
-    if (audio == null) return;
-    await audio.pause();
-    if (mounted) setState(() => _syncPlaybackFlags(audio));
-  }
+  Future<void> _pauseAudio() => _runAudio(() async => _audio?.pause());
 
-  Future<void> _resumeAudio() async {
-    await _runAudio(() async {
-      final audio = _audio;
-      if (audio == null) return;
-      await audio.resume();
-    });
-  }
+  Future<void> _resumeAudio() => _runAudio(() async => _audio?.resume());
 
-  Future<void> _stopAudio() async {
-    final audio = _audio;
-    if (audio == null) return;
-    await audio.stop();
-    if (mounted) {
-      setState(() {
-        _syncPlaybackFlags(audio);
-        _playingAyah = null;
-        _playingSurah = null;
-      });
-    }
-  }
+  Future<void> _restartAudio() => _runAudio(() async => _audio?.restart());
 
-  Future<void> _playAdjacent(QuranRepository quran, {required bool next}) async {
-    await _runAudio(() async {
-      final audio = _ensureAudio(quran);
-      await audio.playAdjacent(next: next);
-    });
-  }
+  Future<void> _stopAudio() => _runAudio(() async => _audio?.stop());
 
-  void _setListenMode(ListenMode mode, QuranRepository quran) {
+  Future<void> _seekAudio(Duration position) =>
+      _runAudio(() async => _audio?.seek(position));
+
+  Future<void> _playAdjacent(QuranRepository quran, {required bool next}) =>
+      _runAudio(() => _ensureAudio(quran).playAdjacent(next: next));
+
+  Future<void> _setListenMode(ListenMode mode, QuranRepository quran) {
     setState(() => _listenMode = mode);
-    _ensureAudio(quran).mode = mode;
+    return _runAudio(() => _ensureAudio(quran).setMode(mode));
   }
 
   void _scrollToAyah(int ayah) {
@@ -406,9 +445,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'رقم الآية (1–$ayahCount)',
-          ),
+          decoration: InputDecoration(labelText: 'رقم الآية (1–$ayahCount)'),
           onSubmitted: (v) => Navigator.pop(ctx, int.tryParse(v.trim())),
         ),
         actions: [
@@ -417,8 +454,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
             child: const Text('إلغاء'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(ctx, int.tryParse(ctrl.text.trim())),
+            onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text.trim())),
             child: const Text('انتقال'),
           ),
         ],
@@ -447,8 +483,8 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                   Text(
                     'إعدادات القراءة',
                     style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -479,8 +515,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                       setSheet(() {});
                       setState(() => _fontSize = v);
                     },
-                    onChangeEnd: (v) =>
-                        unawaited(MushafPrefs.saveFontSize(v)),
+                    onChangeEnd: (v) => unawaited(MushafPrefs.saveFontSize(v)),
                   ),
                   const SizedBox(height: 10),
                   const Text(
@@ -516,10 +551,10 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
   }
 
   TextStyle _quranStyle(MushafPalette palette) => GoogleFonts.amiriQuran(
-        fontSize: _fontSize,
-        height: 2.15,
-        color: palette.text,
-      );
+    fontSize: _fontSize,
+    height: 2.15,
+    color: palette.text,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -541,13 +576,18 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
     final palette = MushafPalette.of(_theme);
     final playingHere = _playingSurah == null || _playingSurah == surahNumber;
 
+    // نطاق الاستماع: واجب اليوم إن كان على هذه السورة، وإلا السورة كاملة.
+    // هكذا يتوفّر وضع «كلي» لكل سورة لا للواجب وحده.
+    final ayahCount = surah.ayahCount;
+    final scopeFrom = homeworkHere ? from!.clamp(1, ayahCount) : 1;
+    final scopeTo = homeworkHere ? to!.clamp(scopeFrom, ayahCount) : ayahCount;
+    final scopeLabel = homeworkHere
+        ? 'واجب اليوم: الآيات ${arabicIndic(scopeFrom)}–${arabicIndic(scopeTo)}'
+        : 'السورة كاملة • ${arabicIndic(ayahCount)} آية';
+
     for (var i = 1; i <= ayahs.length; i++) {
       _ayahKeys.putIfAbsent(i, GlobalKey.new);
     }
-
-    final hasAudioSession = _playing || _paused;
-    // لا نكرر أزرار التشغيل: لوحة الواجب أعلى الصفحة تكفي عند وجود واجب هنا.
-    final showMiniPlayer = hasAudioSession && !(homeworkHere && from != null && to != null);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -568,11 +608,16 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
           PopupMenuButton<String>(
             tooltip: 'اختيار القارئ',
             onSelected: (id) {
-              setState(() {
-                _reciterId = id;
-                _ensureAudio(quran).reciter = QuranAudioSources.byId(id);
-              });
+              setState(() => _reciterId = id);
               unawaited(MushafPrefs.saveReciterId(id));
+              // يُعاد بناء القائمة من الموضع نفسه بصوت القارئ الجديد.
+              unawaited(
+                _runAudio(
+                  () => _ensureAudio(
+                    quran,
+                  ).setReciter(QuranAudioSources.byId(id)),
+                ),
+              );
             },
             itemBuilder: (context) => QuranAudioSources.reciters
                 .map(
@@ -593,20 +638,6 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: showMiniPlayer
-          ? _MiniPlayerBar(
-              surahName: _playingSurah != null
-                  ? quran.surahByNumber(_playingSurah!).name
-                  : surah.name,
-              ayah: _playingAyah,
-              playing: _playing,
-              busy: _busy,
-              onPlayPause: _playing ? _pauseAudio : _resumeAudio,
-              onStop: _stopAudio,
-              onPrev: () => _playAdjacent(quran, next: false),
-              onNext: () => _playAdjacent(quran, next: true),
-            )
-          : null,
       body: Column(
         children: [
           Padding(
@@ -617,8 +648,8 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                   onPressed: surahNumber <= 1
                       ? null
                       : () => ref
-                          .read(mushafSurahProvider.notifier)
-                          .open(surahNumber - 1),
+                            .read(mushafSurahProvider.notifier)
+                            .open(surahNumber - 1),
                   icon: const Icon(Icons.chevron_right),
                   tooltip: 'السورة السابقة',
                 ),
@@ -640,51 +671,54 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                   onPressed: surahNumber >= 114
                       ? null
                       : () => ref
-                          .read(mushafSurahProvider.notifier)
-                          .open(surahNumber + 1),
+                            .read(mushafSurahProvider.notifier)
+                            .open(surahNumber + 1),
                   icon: const Icon(Icons.chevron_left),
                   tooltip: 'السورة التالية',
                 ),
               ],
             ),
           ),
-          if (homeworkHere && from != null && to != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: _HomeworkListenPanel(
-                fromAyah: from,
-                toAyah: to,
-                currentAyah: playingHere ? _playingAyah : null,
-                listenMode: _listenMode,
-                busy: _busy,
-                playing: _playing && playingHere,
-                paused: _paused && playingHere,
-                onModeChanged: (mode) => _setListenMode(mode, quran),
-                onPlay: () => _startHomeworkListen(
-                  surahNumber,
-                  from,
-                  to,
-                  quran,
-                ),
-                onPause: _pauseAudio,
-                onResume: _resumeAudio,
-                onStop: _stopAudio,
-                onPrev: () => _playAdjacent(quran, next: false),
-                onNext: () => _playAdjacent(quran, next: true),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _ListenPanel(
+              player: _audio,
+              scopeLabel: scopeLabel,
+              currentAyah: _playingAyah,
+              // تبقى اللوحة موصولة بالجلسة الجارية حتى لو تصفّح الطالب سورة
+              // أخرى، فلا يفقد القدرة على إيقافها أو التنقل فيها.
+              playingSurahName:
+                  _playingSurah != null && _playingSurah != surahNumber
+                  ? quran.surahByNumber(_playingSurah!).name
+                  : null,
+              listenMode: _listenMode,
+              playing: _playing,
+              paused: _paused,
+              buffering: _buffering,
+              completed: _completed,
+              errorMessage: _audioError,
+              canPrev: _canPrev,
+              canNext: _canNext,
+              onModeChanged: (mode) => _setListenMode(mode, quran),
+              onPlay: () =>
+                  _startListen(surahNumber, scopeFrom, scopeTo, quran),
+              onPause: _pauseAudio,
+              onResume: _resumeAudio,
+              onRestart: _restartAudio,
+              onStop: _stopAudio,
+              onPrev: () => _playAdjacent(quran, next: false),
+              onNext: () => _playAdjacent(quran, next: true),
+              onSeek: _seekAudio,
             ),
+          ),
           Expanded(
             child: GestureDetector(
               onHorizontalDragEnd: (details) {
                 final v = details.primaryVelocity ?? 0;
                 if (v > 320 && surahNumber > 1) {
-                  ref
-                      .read(mushafSurahProvider.notifier)
-                      .open(surahNumber - 1);
+                  ref.read(mushafSurahProvider.notifier).open(surahNumber - 1);
                 } else if (v < -320 && surahNumber < 114) {
-                  ref
-                      .read(mushafSurahProvider.notifier)
-                      .open(surahNumber + 1);
+                  ref.read(mushafSurahProvider.notifier).open(surahNumber + 1);
                 }
               },
               child: Container(
@@ -735,18 +769,13 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                 Text(
                                   'بسملة افتتاح — للعرض فقط وليست آية معدودة',
                                   textAlign: TextAlign.center,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: palette.subtle),
                                 ),
                                 TextButton.icon(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _runAudio(() async {
-                                            await _ensureAudio(quran)
-                                                .playOpeningBasmala();
-                                          }),
+                                  onPressed: () => _runAudio(
+                                    () => _ensureAudio(quran).playBasmala(),
+                                  ),
                                   icon: const Icon(Icons.volume_up_outlined),
                                   label: const Text('تشغيل البسملة وحدها'),
                                 ),
@@ -757,9 +786,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                   child: Text(
                                     'في رواية حفص: البسملة هي الآية 1 من الفاتحة',
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(color: palette.subtle),
                                   ),
                                 ),
@@ -767,9 +794,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                               Text(
                                 'اضغط الآية للاستماع • اضغط مطوّلًا: تعليم الحفظ أو التفسير',
                                 textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: palette.subtle),
                               ),
                               const SizedBox(height: 10),
@@ -778,16 +803,20 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                 style: _quranStyle(palette),
                                 palette: palette,
                                 ayahKeys: _ayahKeys,
-                                playingAyah:
-                                    playingHere ? _playingAyah : null,
+                                playingAyah: playingHere ? _playingAyah : null,
                                 highlightFrom: from,
                                 highlightTo: to,
                                 progressAyah:
                                     progress?.surahNumber == surahNumber
-                                        ? progress?.ayahNumber
-                                        : null,
-                                onAyahTap: (ayah) =>
-                                    _toggleAudio(surahNumber, ayah, quran),
+                                    ? progress?.ayahNumber
+                                    : null,
+                                onAyahTap: (ayah) => _toggleAudio(
+                                  surahNumber,
+                                  ayah,
+                                  scopeFrom,
+                                  scopeTo,
+                                  quran,
+                                ),
                                 onAyahLongPress: (ayah) {
                                   showAyahActionsSheet(
                                     context,
@@ -797,12 +826,12 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                     onMarkProgress: () {
                                       ref
                                           .read(
-                                            progressControllerProvider
-                                                .notifier,
+                                            progressControllerProvider.notifier,
                                           )
                                           .save(surahNumber, ayah);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text(
                                             'تم تعليم مكان الحفظ عند الآية $ayah',
@@ -829,12 +858,15 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                         ayahNumber: ayah,
                                         ayahText: text,
                                         tafsirText: tafsir,
-                                        sourceLabel: meta?.source ??
+                                        sourceLabel:
+                                            meta?.source ??
                                             'التفسير الميسر — مجمع الملك فهد',
                                         palette: palette,
                                         onListen: () => _toggleAudio(
                                           surahNumber,
                                           ayah,
+                                          scopeFrom,
+                                          scopeTo,
                                           quran,
                                         ),
                                       );
@@ -847,9 +879,7 @@ class _MushafScreenState extends ConsumerState<MushafScreen> {
                                 'المصدر: مشروع تنزيل (Tanzil) — نص عثماني دون تعديل\n'
                                 '${quran.metadata?.website ?? 'https://tanzil.net'}',
                                 textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: palette.subtle,
                                       height: 1.4,
@@ -893,9 +923,7 @@ class _SurahHeaderFrame extends StatelessWidget {
         width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.gold.withValues(alpha: 0.55),
-          ),
+          border: Border.all(color: AppColors.gold.withValues(alpha: 0.55)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Column(
@@ -941,170 +969,78 @@ class _SurahHeaderFrame extends StatelessWidget {
   }
 }
 
-/// شريط تشغيل مصغّر يظهر أسفل الشاشة أثناء الاستماع.
-class _MiniPlayerBar extends StatelessWidget {
-  const _MiniPlayerBar({
-    required this.surahName,
-    required this.ayah,
-    required this.playing,
-    required this.busy,
-    required this.onPlayPause,
-    required this.onStop,
-    required this.onPrev,
-    required this.onNext,
-  });
-
-  final String surahName;
-  final int? ayah;
-  final bool playing;
-  final bool busy;
-  final VoidCallback onPlayPause;
-  final VoidCallback onStop;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.oliveDark,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.oliveDark.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'سورة $surahName',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (ayah != null)
-                    Text(
-                      'الآية ${arabicIndic(ayah!)}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: 'الآية السابقة',
-              onPressed: busy ? null : onPrev,
-              icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
-            ),
-            if (busy)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-            else
-              IconButton(
-                tooltip: playing ? 'إيقاف مؤقت' : 'متابعة',
-                onPressed: onPlayPause,
-                icon: Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            IconButton(
-              tooltip: 'الآية التالية',
-              onPressed: busy ? null : onNext,
-              icon: const Icon(
-                Icons.skip_previous_rounded,
-                color: Colors.white,
-              ),
-            ),
-            IconButton(
-              tooltip: 'إيقاف',
-              onPressed: busy ? null : onStop,
-              icon: const Icon(Icons.stop_rounded, color: Colors.white),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeworkListenPanel extends StatelessWidget {
-  const _HomeworkListenPanel({
-    required this.fromAyah,
-    required this.toAyah,
+/// لوحة الاستماع المثبّتة أعلى المصحف.
+///
+/// تظهر دائمًا لا عند وجود واجب فقط، فوضع «كلي» متاح لكل سورة. ولا يُعطَّل
+/// أي زر أثناء التحميل: مؤشّر انتظار صغير بجانب الحالة يكفي، والمشغّل نفسه
+/// يرتّب الأوامر المتلاحقة.
+class _ListenPanel extends StatelessWidget {
+  const _ListenPanel({
+    required this.player,
+    required this.scopeLabel,
     required this.currentAyah,
+    required this.playingSurahName,
     required this.listenMode,
-    required this.busy,
     required this.playing,
     required this.paused,
+    required this.buffering,
+    required this.completed,
+    required this.errorMessage,
+    required this.canPrev,
+    required this.canNext,
     required this.onModeChanged,
     required this.onPlay,
     required this.onPause,
     required this.onResume,
+    required this.onRestart,
     required this.onStop,
     required this.onPrev,
     required this.onNext,
+    required this.onSeek,
   });
 
-  final int fromAyah;
-  final int toAyah;
+  final QuranAudioPlayer? player;
+  final String scopeLabel;
   final int? currentAyah;
+
+  /// اسم السورة الجارية إن كانت غير المعروضة على الشاشة.
+  final String? playingSurahName;
   final ListenMode listenMode;
-  final bool busy;
   final bool playing;
   final bool paused;
+  final bool buffering;
+  final bool completed;
+  final String? errorMessage;
+  final bool canPrev;
+  final bool canNext;
   final ValueChanged<ListenMode> onModeChanged;
   final VoidCallback onPlay;
   final VoidCallback onPause;
   final VoidCallback onResume;
+  final VoidCallback onRestart;
   final VoidCallback onStop;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final ValueChanged<Duration> onSeek;
 
-  bool get _inRange =>
-      currentAyah != null &&
-      currentAyah! >= fromAyah &&
-      currentAyah! <= toAyah;
-
-  bool get _canPrev => _inRange && currentAyah! > fromAyah && !busy;
-
-  bool get _canNext => _inRange && currentAyah! < toAyah && !busy;
+  bool get _active =>
+      (playing || paused || completed || errorMessage != null) &&
+      currentAyah != null;
 
   @override
   Widget build(BuildContext context) {
-    final status = playing
-        ? 'جاري الاستماع • الآية $currentAyah'
-        : paused && _inRange
-            ? 'متوقف مؤقتًا • الآية $currentAyah'
-            : 'واجب اليوم: الآيات $fromAyah–$toAyah';
+    final where = playingSurahName == null ? '' : 'سورة $playingSurahName • ';
+    final state = errorMessage != null
+        ? 'تعذّر التشغيل'
+        : completed
+        ? 'اكتملت التلاوة'
+        : playing
+        ? 'جاري الاستماع'
+        : 'متوقف مؤقتًا';
+    final ayahLabel = currentAyah == null
+        ? ''
+        : 'الآية ${arabicIndic(currentAyah!)}';
+    final status = _active ? '$state • $where$ayahLabel' : scopeLabel;
 
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -1121,6 +1057,15 @@ class _HomeworkListenPanel extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              if (buffering)
+                const Padding(
+                  padding: EdgeInsetsDirectional.only(start: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1138,79 +1083,178 @@ class _HomeworkListenPanel extends StatelessWidget {
               ),
             ],
             selected: {listenMode},
-            onSelectionChanged: busy
-                ? null
-                : (set) {
-                    if (set.isEmpty) return;
-                    onModeChanged(set.first);
-                  },
+            onSelectionChanged: (set) {
+              if (set.isEmpty) return;
+              onModeChanged(set.first);
+            },
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
               textStyle: WidgetStatePropertyAll(
-                Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          if (_active && player != null) ...[
+            const SizedBox(height: 4),
+            _AudioProgressBar(player: player!, onSeek: onSeek),
+          ] else
+            const SizedBox(height: 10),
           Row(
             children: [
               IconButton.filledTonal(
                 tooltip: 'الآية السابقة',
-                onPressed: _canPrev ? onPrev : null,
+                onPressed: _active && canPrev ? onPrev : null,
                 icon: const Icon(Icons.skip_next_rounded),
               ),
               const SizedBox(width: 4),
               if (playing)
                 IconButton.filled(
                   tooltip: 'إيقاف مؤقت',
-                  onPressed: busy ? null : onPause,
+                  onPressed: onPause,
                   icon: const Icon(Icons.pause_rounded),
                 )
-              else if (paused && _inRange)
+              else if (completed)
                 IconButton.filled(
-                  tooltip: 'متابعة',
-                  onPressed: busy ? null : onResume,
-                  icon: const Icon(Icons.play_arrow_rounded),
+                  tooltip: 'إعادة من البداية',
+                  onPressed: onRestart,
+                  icon: const Icon(Icons.replay_rounded),
+                )
+              else if (_active)
+                IconButton.filled(
+                  tooltip: errorMessage == null ? 'متابعة' : 'إعادة المحاولة',
+                  onPressed: onResume,
+                  icon: Icon(
+                    errorMessage == null
+                        ? Icons.play_arrow_rounded
+                        : Icons.refresh_rounded,
+                  ),
                 )
               else
                 IconButton.filled(
                   tooltip: 'استماع',
-                  onPressed: busy ? null : onPlay,
+                  onPressed: onPlay,
                   icon: const Icon(Icons.play_arrow_rounded),
                 ),
               const SizedBox(width: 4),
               IconButton.filledTonal(
                 tooltip: 'إيقاف',
-                onPressed: (!playing && !paused) || busy ? null : onStop,
+                onPressed: _active ? onStop : null,
                 icon: const Icon(Icons.stop_rounded),
               ),
               const SizedBox(width: 4),
               IconButton.filledTonal(
                 tooltip: 'الآية التالية',
-                onPressed: _canNext ? onNext : null,
+                onPressed: _active && canNext ? onNext : null,
                 icon: const Icon(Icons.skip_previous_rounded),
               ),
               const Spacer(),
-              if (busy)
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.4),
-                )
-              else
-                Text(
-                  listenMode == ListenMode.continuous ? 'متواصل' : 'آية واحدة',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.olive.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w700,
-                      ),
+              Text(
+                listenMode == ListenMode.continuous ? 'متواصل' : 'آية واحدة',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.olive.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w700,
                 ),
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// شريط تقدّم الآية مع إمكانية التمرير داخلها.
+///
+/// يحتفظ بقيمة السحب محليًا حتى لا يقفز المؤشّر للخلف أثناء سحب المستخدم.
+class _AudioProgressBar extends StatefulWidget {
+  const _AudioProgressBar({required this.player, required this.onSeek});
+
+  final QuranAudioPlayer player;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  State<_AudioProgressBar> createState() => _AudioProgressBarState();
+}
+
+class _AudioProgressBarState extends State<_AudioProgressBar> {
+  double? _dragMs;
+
+  static String _clock(Duration value) {
+    final total = value.inSeconds < 0 ? 0 : value.inSeconds;
+    final minutes = arabicIndic(total ~/ 60);
+    final seconds = total % 60;
+    final padded = seconds < 10
+        ? '٠${arabicIndic(seconds)}'
+        : arabicIndic(seconds);
+    return '$minutes:$padded';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration?>(
+      stream: widget.player.durationStream,
+      builder: (context, durationSnapshot) {
+        final total = durationSnapshot.data ?? widget.player.duration;
+        final maxMs = (total?.inMilliseconds ?? 0).toDouble();
+        return StreamBuilder<Duration>(
+          stream: widget.player.positionStream,
+          builder: (context, positionSnapshot) {
+            final position = positionSnapshot.data ?? Duration.zero;
+            final positionMs = position.inMilliseconds.toDouble().clamp(
+              0.0,
+              maxMs,
+            );
+            final value = (_dragMs ?? positionMs).clamp(0.0, maxMs);
+            final label = Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.olive.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+            );
+            return Column(
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 7,
+                    ),
+                  ),
+                  child: Slider(
+                    value: value,
+                    max: maxMs <= 0 ? 1 : maxMs,
+                    onChanged: maxMs <= 0
+                        ? null
+                        : (v) => setState(() => _dragMs = v),
+                    onChangeEnd: maxMs <= 0
+                        ? null
+                        : (v) {
+                            setState(() => _dragMs = null);
+                            widget.onSeek(Duration(milliseconds: v.round()));
+                          },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _clock(Duration(milliseconds: value.round())),
+                        style: label,
+                      ),
+                      Text(_clock(total ?? Duration.zero), style: label),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1260,7 +1304,8 @@ class _ContinuousSurahText extends StatelessWidget {
               style: style,
               palette: palette,
               playing: playingAyah == i + 1,
-              inHomework: highlightFrom != null &&
+              inHomework:
+                  highlightFrom != null &&
                   highlightTo != null &&
                   (i + 1) >= highlightFrom! &&
                   (i + 1) <= highlightTo!,
@@ -1305,8 +1350,8 @@ class _AyahChip extends StatelessWidget {
       color: playing
           ? palette.playingBg
           : inHomework
-              ? palette.homeworkBg
-              : Colors.transparent,
+          ? palette.homeworkBg
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

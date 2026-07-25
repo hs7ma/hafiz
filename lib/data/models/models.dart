@@ -17,7 +17,7 @@ enum MemorizationLevel {
 extension MemorizationLevelX on MemorizationLevel {
   String get labelAr => switch (this) {
         MemorizationLevel.notMemorized => 'غير حافظ',
-        MemorizationLevel.poor => 'سيء',
+        MemorizationLevel.poor => 'ضعيف',
         MemorizationLevel.average => 'متوسط',
         MemorizationLevel.good => 'جيد',
         MemorizationLevel.veryGood => 'جيد جدا',
@@ -220,3 +220,72 @@ class ReadingProgress {
   final int surahNumber;
   final int ayahNumber;
 }
+
+/// جدول مواعيد دروس المدرّس الأسبوعية.
+/// الأيام وفق [DateTime.weekday]: 1=اثنين … 6=سبت … 7=أحد.
+class TeacherClassSchedule {
+  const TeacherClassSchedule({
+    required this.id,
+    required this.mosqueId,
+    required this.teacherId,
+    required this.lecturesPerWeek,
+    required this.weekdays,
+    this.active = true,
+  });
+
+  final String id;
+  final String mosqueId;
+  final String teacherId;
+  final int lecturesPerWeek;
+  final List<int> weekdays;
+  final bool active;
+
+  bool isLectureDay(DateTime date) => weekdays.contains(date.weekday);
+
+  TeacherClassSchedule copyWith({
+    int? lecturesPerWeek,
+    List<int>? weekdays,
+    bool? active,
+  }) {
+    return TeacherClassSchedule(
+      id: id,
+      mosqueId: mosqueId,
+      teacherId: teacherId,
+      lecturesPerWeek: lecturesPerWeek ?? this.lecturesPerWeek,
+      weekdays: weekdays ?? this.weekdays,
+      active: active ?? this.active,
+    );
+  }
+}
+
+/// صف أرشيف درس (جلسة + حضور مرتبط).
+class LessonArchiveRow {
+  const LessonArchiveRow({
+    required this.sessionId,
+    required this.sessionDate,
+    required this.studentId,
+    required this.studentName,
+    required this.status,
+    this.memorizationLevel,
+    this.behaviorScore,
+  });
+
+  final String sessionId;
+  final DateTime sessionDate;
+  final String studentId;
+  final String studentName;
+  final AttendanceStatus status;
+  final MemorizationLevel? memorizationLevel;
+  final int? behaviorScore;
+}
+
+/// أسماء أيام الأسبوع بالعربية (مفتاح = DateTime.weekday).
+const Map<int, String> arabicWeekdayLabels = {
+  1: 'الاثنين',
+  2: 'الثلاثاء',
+  3: 'الأربعاء',
+  4: 'الخميس',
+  5: 'الجمعة',
+  6: 'السبت',
+  7: 'الأحد',
+};

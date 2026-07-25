@@ -1,23 +1,26 @@
-import 'quran_rules.dart';
-
 /// مصادر صوت مجانية لتلاوة القرآن (بدون مفتاح API).
 ///
 /// الرابط الأساسي EveryAyah بصيغة SSSAAA = سورة:آية صريحة
-/// لتجنب أي التباس مع الترقيم العالمي.
+/// لتجنب أي التباس مع الترقيم العالمي، والاحتياطي هو cdn.islamic.network
+/// بالترقيم العالمي. المصدران يقدّمان نفس التسجيلات لنفس القرّاء، لذلك
+/// لكل قارئ معرّفان: مجلد EveryAyah وإصدار الـ CDN المقابل له.
 class QuranReciter {
   const QuranReciter({
     required this.id,
     required this.nameAr,
     required this.everyAyahFolder,
-    required this.basmalaSkip,
+    required this.cdnEdition,
   });
 
   final String id;
   final String nameAr;
+
+  /// اسم المجلد على everyayah.com.
   final String everyAyahFolder;
 
-  /// مدة تقريبية لبسملة هذا القارئ (لتخطيها في آية 1 لغير الفاتحة).
-  final Duration basmalaSkip;
+  /// إصدار نفس القارئ على cdn.islamic.network — يضمن أن المصدر الاحتياطي
+  /// لا يبدّل صوت القارئ في منتصف التلاوة.
+  final String cdnEdition;
 }
 
 class QuranAudioSources {
@@ -26,25 +29,25 @@ class QuranAudioSources {
       id: 'alafasy',
       nameAr: 'مشاري العفاسي',
       everyAyahFolder: 'Alafasy_128kbps',
-      basmalaSkip: Duration(milliseconds: 6000),
+      cdnEdition: 'ar.alafasy',
     ),
     QuranReciter(
       id: 'minshawy',
       nameAr: 'محمد صديق المنشاوي',
       everyAyahFolder: 'Minshawy_Murattal_128kbps',
-      basmalaSkip: Duration(milliseconds: 5200),
+      cdnEdition: 'ar.minshawi',
     ),
     QuranReciter(
       id: 'husary',
       nameAr: 'محمود خليل الحصري',
       everyAyahFolder: 'Husary_128kbps',
-      basmalaSkip: Duration(milliseconds: 5500),
+      cdnEdition: 'ar.husary',
     ),
     QuranReciter(
       id: 'shaatree',
       nameAr: 'أبو بكر الشاطري',
       everyAyahFolder: 'Abu_Bakr_Ash-Shaatree_128kbps',
-      basmalaSkip: Duration(milliseconds: 5800),
+      cdnEdition: 'ar.shaatree',
     ),
   ];
 
@@ -66,9 +69,10 @@ class QuranAudioSources {
     return 'https://everyayah.com/data/${reciter.everyAyahFolder}/$s$a.mp3';
   }
 
-  /// احتياطي CDN بالرقم العالمي 1..6236.
-  static String islamicNetworkUrl(int globalAyah) {
-    return 'https://cdn.islamic.network/quran/audio/128/ar.alafasy/$globalAyah.mp3';
+  /// احتياطي CDN بالرقم العالمي 1..6236 وبنفس القارئ المختار.
+  static String islamicNetworkUrl(QuranReciter reciter, int globalAyah) {
+    return 'https://cdn.islamic.network/quran/audio/128/'
+        '${reciter.cdnEdition}/$globalAyah.mp3';
   }
 
   static List<String> urlsFor({
@@ -80,19 +84,7 @@ class QuranAudioSources {
     // EveryAyah أولًا لأنه يطابق رقم السورة/الآية حرفيًا.
     return [
       everyAyahUrl(reciter, surahNumber, ayahNumber),
-      islamicNetworkUrl(globalAyah),
+      islamicNetworkUrl(reciter, globalAyah),
     ];
-  }
-
-  static Duration? introSkip({
-    required QuranReciter reciter,
-    required int surahNumber,
-    required int ayahNumber,
-  }) {
-    if (ayahNumber != 1) return null;
-    if (!QuranRules.ayahOneAudioOftenStartsWithBasmala(surahNumber)) {
-      return null;
-    }
-    return reciter.basmalaSkip;
   }
 }

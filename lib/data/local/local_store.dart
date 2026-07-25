@@ -48,6 +48,9 @@ class LocalSnapshot {
     required this.lastMemorization,
     this.todaySession,
     required this.attendance,
+    this.classSchedule,
+    required this.sessionHistory,
+    required this.attendanceHistory,
     this.currentUser,
     this.currentMosqueId,
   });
@@ -61,6 +64,9 @@ class LocalSnapshot {
   final Map<String, String> lastMemorization;
   final Map<String, dynamic>? todaySession;
   final List<Map<String, dynamic>> attendance;
+  final Map<String, dynamic>? classSchedule;
+  final List<Map<String, dynamic>> sessionHistory;
+  final List<Map<String, dynamic>> attendanceHistory;
   final Map<String, dynamic>? currentUser;
   final String? currentMosqueId;
 
@@ -74,6 +80,9 @@ class LocalSnapshot {
         'last_memorization': lastMemorization,
         'today_session': todaySession,
         'attendance': attendance,
+        'class_schedule': classSchedule,
+        'session_history': sessionHistory,
+        'attendance_history': attendanceHistory,
         'current_user': currentUser,
         'current_mosque_id': currentMosqueId,
       };
@@ -117,6 +126,11 @@ class LocalSnapshot {
           ? Map<String, dynamic>.from(json['today_session'] as Map)
           : null,
       attendance: list(json['attendance']),
+      classSchedule: json['class_schedule'] is Map
+          ? Map<String, dynamic>.from(json['class_schedule'] as Map)
+          : null,
+      sessionHistory: list(json['session_history']),
+      attendanceHistory: list(json['attendance_history']),
       currentUser: json['current_user'] is Map
           ? Map<String, dynamic>.from(json['current_user'] as Map)
           : null,
