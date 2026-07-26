@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-hidden="true">
+  <polygon points="48,8 112,8 152,48 152,112 112,152 48,152 8,112 8,48" fill="#032C27" stroke="#AF8644" stroke-width="3"/>
+  <g fill="none" stroke="#FBF9F2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="68" cy="62" r="10"/>
+    <path d="M48 104c2-16 10-24 20-24s18 8 20 24"/>
+    <circle cx="100" cy="66" r="8"/>
+    <path d="M92 104c1-12 7-18 14-18 8 0 14 6 16 18"/>
+  </g>
+</svg>

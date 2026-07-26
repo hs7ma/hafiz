@@ -30,9 +30,11 @@ jobs:
             _site/privacy-policy _site/terms-of-service
           cp website/index.html website/styles.css website/animations.js \
             website/robots.txt website/logo.svg website/logo-on-dark.svg \
-            website/og-image.png website/favicon-32.png website/apple-touch-icon.png \
-            website/hafiz.apk _site/
+            website/og-image.png website/favicon.svg website/favicon-32.png \
+            website/apple-touch-icon.png website/hafiz.apk _site/
+          # SVG icons + translucent mosque scene photos for scroll atmosphere
           cp website/illustrations/*.svg _site/illustrations/
+          cp website/illustrations/*.webp _site/illustrations/ 2>/dev/null || true
           cp website/privacy.html _site/privacy/index.html
           cp website/terms.html _site/terms/index.html
           printf '%s\n' '<!DOCTYPE html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/privacy"><link rel="canonical" href="https://hafizapp.xyz/privacy"><title>Redirecting…</title>' > _site/privacy-policy/index.html

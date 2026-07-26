@@ -2,19 +2,18 @@
 <html lang="ar" dir="rtl">
   <head>
     <!--
-      THESIS: Mosque decision-makers see Hafiz as geometric parchment clarity — not a SaaS card grid or stamp-cloth template.
-      OWN-WORLD: Parchment #FBF9F2, deep teal #032C27, antique gold #AF8644; Alexandria; octagon lattice stamps; dual teal/gold rule; pill CTAs.
-      STORY: Understand mosque value → see without/with → feel meanings as octagons → start path → install.
-      FIRST VIEWPORT: Dual bar + header logo.svg + one promise + one sentence + dual CTAs + geometric plane.
-      FORM: Geometric parchment from image.svg reference; seed pinned by asset.
+      THESIS: Editorial brand landing — Hafiz as quiet luxury over translucent mosque architecture.
+      OWN-WORLD: Parchment #FBF9F2, teal #032C27, gold #AF8644; Alexandria; hairlines; octagon seals; no SaaS cards.
+      STORY: Brand → without/with → seals → steps → FAQ → download.
+      FIRST VIEWPORT: Oversized mark + short promise + two lines + dual pill CTAs only.
     -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="حافظ — نظّم حلقات التحفيظ في مسجدك: حضور، واجبات، تقارير، ومصحف — أوفلاين أولاً."
+      content="حافظ — منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
     />
-    <title>حافظ — لمن يدير حلقة التحفيظ في المسجد</title>
+    <title>حافظ — حلقات القرآن كما ينبغي أن تكون</title>
     <link rel="canonical" href="https://hafizapp.xyz/" />
     <meta name="theme-color" content="#032C27" />
     <meta name="robots" content="index, follow" />
@@ -23,224 +22,210 @@
     <meta property="og:locale" content="ar_AR" />
     <meta property="og:site_name" content="حافظ" />
     <meta property="og:url" content="https://hafizapp.xyz/" />
-    <meta property="og:title" content="حافظ — لمن يدير حلقة التحفيظ في المسجد" />
+    <meta property="og:title" content="حافظ — حلقات القرآن كما ينبغي أن تكون" />
     <meta
       property="og:description"
-      content="منظومة عربية للمسجد: جلسة يومية، واجبات، تقارير واتساب، ومصحف — تعمل بدون إنترنت."
+      content="منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
     />
     <meta property="og:image" content="https://hafizapp.xyz/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="حافظ — لمن يدير حلقة التحفيظ في المسجد" />
+    <meta name="twitter:title" content="حافظ — حلقات القرآن كما ينبغي أن تكون" />
     <meta
       name="twitter:description"
-      content="منظومة عربية للمسجد: حضور وواجبات وتقارير — أوفلاين أولاً."
+      content="منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
     />
     <meta name="twitter:image" content="https://hafizapp.xyz/og-image.png" />
-    <link rel="icon" href="logo.svg" type="image/svg+xml" />
-    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180" />
+    <link rel="icon" href="favicon.svg?v=20260726s" type="image/svg+xml" />
+    <link rel="icon" href="favicon-32.png?v=20260726s" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260726s" sizes="180x180" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="preload" as="image" href="illustrations/hero-geometry.svg" fetchpriority="high" />
-    <link rel="stylesheet" href="styles.css?v=20260724t" />
-    <script defer src="animations.js?v=20260724t"></script>
+    <link
+      rel="preload"
+      as="image"
+      href="illustrations/mosque-architecture-bg.webp"
+      fetchpriority="high"
+      type="image/webp"
+    />
+    <link rel="stylesheet" href="styles.css?v=20260726s" />
+    <script defer src="animations.js?v=20260726s"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">تخطّي إلى المحتوى</a>
     <div class="scroll-progress" aria-hidden="true"></div>
     <div class="brand-bar" aria-hidden="true"></div>
 
-    <header class="site-header" data-header>
-      <div class="site-header__inner">
-        <a class="site-brand" href="#top" aria-label="حافظ — الصفحة الرئيسية">
-          <img src="logo.svg" width="73" height="67" alt="حافظ" />
-        </a>
-        <button
-          class="site-nav__toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="site-nav"
-          data-nav-toggle
-        >
-          القائمة
-        </button>
-        <nav id="site-nav" class="site-nav" aria-label="التنقل الرئيسي">
-          <ul class="site-nav__links">
-            <li><a href="#proof">القيمة</a></li>
-            <li><a href="#meanings">المعاني</a></li>
-            <li><a href="#start">البدء</a></li>
-          </ul>
-          <a class="btn btn--primary btn--sm site-nav__cta" href="#download">تحميل</a>
-        </nav>
-      </div>
-    </header>
-
-    <section id="top" class="hero">
-      <div class="hero__plane" aria-hidden="true">
+    <div class="page-atmosphere" aria-hidden="true" data-atmosphere>
+      <div class="page-atmosphere__stack">
         <img
-          class="hero__art"
-          src="illustrations/hero-geometry.svg"
+          class="page-atmosphere__img is-active"
+          src="illustrations/mosque-architecture-bg.webp"
           width="1600"
-          height="1200"
+          height="900"
           alt=""
           fetchpriority="high"
           decoding="async"
+          data-scene="0"
+        />
+        <img
+          class="page-atmosphere__img"
+          src="illustrations/mosque-scene-colonnade.webp"
+          width="1600"
+          height="900"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          data-scene="1"
+        />
+        <img
+          class="page-atmosphere__img"
+          src="illustrations/mosque-scene-mihrab.webp"
+          width="1600"
+          height="900"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          data-scene="2"
+        />
+        <img
+          class="page-atmosphere__img"
+          src="illustrations/mosque-scene-dome.webp"
+          width="1600"
+          height="900"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          data-scene="3"
         />
       </div>
-      <div class="hero__wash" aria-hidden="true"></div>
+      <div class="page-atmosphere__veil"></div>
+    </div>
 
+    <nav class="micro-nav" aria-label="روابط سريعة">
+      <a href="#proof">المقارنة</a>
+      <a href="#meanings">المعاني</a>
+      <a href="#start">البدء</a>
+      <a href="#download">تحميل</a>
+    </nav>
+
+    <section id="top" class="hero" data-atmosphere-scene="0">
       <div class="hero__copy">
-        <h1 class="hero__title">حلقة منظّمة… من الجلسة حتى تقرير ولي الأمر</h1>
+        <a class="hero__brand" href="#top" aria-label="حافظ">
+          <img src="logo.svg?v=20260726s" width="380" height="220" alt="حافظ" />
+        </a>
+        <h1 class="hero__title">
+          حلقات القرآن<br />
+          كما ينبغي أن تكون.
+        </h1>
         <p class="hero__lead">
-          منظومة عربية للمسجد تعمل <strong>بدون إنترنت</strong> داخل الحلقة، ثم تزامن عند الاتصال.
+          منصة عربية لإدارة حلقات التحفيظ<br />
+          داخل المساجد بكل سهولة.
         </p>
         <div class="hero__actions">
-          <a class="btn btn--primary" href="#proof">كيف يساعد مسجدك؟</a>
-          <a class="btn btn--ghost" href="#download">تحميل أندرويد</a>
+          <a class="btn btn--primary" href="#download">سجّل حلقتك</a>
+          <a class="btn btn--ghost" href="#proof">اطّلع على المنصة</a>
         </div>
       </div>
     </section>
 
     <main id="main">
-      <section id="proof" class="section section--proof">
+      <section id="proof" class="section section--proof" data-atmosphere-scene="1">
         <div class="section__wrap">
-          <h2 class="section__title">لماذا يهمّ المسجد؟</h2>
-          <p class="section__lead">حجتان متقابلتان — بدون منظومة، ومع حافظ.</p>
-
-          <div class="split" data-split>
-            <div class="split__pane split__pane--before">
-              <h3>بدون منظومة</h3>
-              <ul>
-                <li>حضور على ورق أو واتساب</li>
-                <li>واجبات غير واضحة</li>
-                <li>متابعة الحلقات صعبة</li>
-                <li>تقارير أولياء الأمور متأخرة</li>
+          <div class="compare" data-reveal>
+            <div class="compare__pane compare__pane--before">
+              <h2 class="compare__title">بدون حافظ</h2>
+              <ul class="compare__list">
+                <li><span class="compare__mark" aria-hidden="true">×</span>متابعة يدوية ومتفرقة</li>
+                <li><span class="compare__mark" aria-hidden="true">×</span>تشتيت بين الورق وواتساب</li>
+                <li><span class="compare__mark" aria-hidden="true">×</span>صعوبة إعداد التقارير</li>
+                <li><span class="compare__mark" aria-hidden="true">×</span>واجب غير واضح</li>
               </ul>
             </div>
-            <button class="split__handle" type="button" aria-label="اسحب للمقارنة" data-split-handle></button>
-            <div class="split__pane split__pane--after">
-              <h3>مع حافظ</h3>
-              <ul>
-                <li>جلسة يومية وحضور لكل طالب</li>
-                <li>واجب محدد بسورة وآيات</li>
-                <li>ملخص للمدرّسين والطلاب</li>
-                <li>تقرير واتساب جاهز بعد الدرس</li>
+
+            <div class="compare__rule" aria-hidden="true"></div>
+
+            <div class="compare__pane compare__pane--after">
+              <h2 class="compare__title">مع حافظ</h2>
+              <ul class="compare__list">
+                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>سجلات منظّمة لكل حلقة</li>
+                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>تواصل واضح داخل المسجد</li>
+                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>تقرير واتساب جاهز</li>
+                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>متابعة مستوى الحفظ</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="meanings" class="section section--meanings">
+      <section id="meanings" class="section section--meanings" data-atmosphere-scene="2">
         <div class="section__wrap">
-          <h2 class="section__title">معاني حافظ</h2>
-          <p class="section__lead">كل شكل ثماني معنى واحد — اضغط لترى التفاصيل.</p>
-
-          <div class="octagon-grid">
-            <article class="octagon-panel is-active" data-stamp tabindex="0">
-              <img
-                class="octagon-panel__art"
-                src="illustrations/stamp-attendance.svg?v=20260724h"
-                width="160"
-                height="160"
-                alt=""
-                loading="lazy"
-              />
-              <h3>حضور وحفظ</h3>
-              <p>سجّل الحاضر والغائب، وقيّم مستوى الحفظ في نفس الجلسة.</p>
-            </article>
-            <article class="octagon-panel" data-stamp tabindex="0">
-              <img
-                class="octagon-panel__art"
-                src="illustrations/stamp-mushaf.svg?v=20260724h"
-                width="160"
-                height="160"
-                alt=""
-                loading="lazy"
-              />
-              <h3>مصحف وقرّاء</h3>
-              <p>آيات مع تفسير ميسّر، واستماع بعدة أصوات لتثبيت الحفظ.</p>
-            </article>
-            <article class="octagon-panel" data-stamp tabindex="0">
-              <img
-                class="octagon-panel__art"
-                src="illustrations/stamp-reports.svg?v=20260724h"
-                width="160"
-                height="160"
-                alt=""
-                loading="lazy"
-              />
-              <h3>تقارير واتساب</h3>
-              <p>رسالة جاهزة لولي الأمر: حضور وواجب ومستوى الحفظ.</p>
-            </article>
-            <article class="octagon-panel" data-stamp tabindex="0">
-              <img
-                class="octagon-panel__art"
-                src="illustrations/stamp-offline.svg?v=20260724h"
-                width="160"
-                height="160"
-                alt=""
-                loading="lazy"
-              />
-              <h3>أوفلاين أولاً</h3>
-              <p>يعمل داخل المسجد مع ضعف الشبكة، ثم يرفع البيانات عند الاتصال.</p>
-            </article>
-          </div>
+          <ul class="seal-row" data-reveal>
+            <li class="seal">
+              <img class="seal__art" src="illustrations/icon-mosque.svg" width="140" height="140" alt="" loading="lazy" />
+              <h2 class="seal__label">المسجد</h2>
+            </li>
+            <li class="seal">
+              <img class="seal__art" src="illustrations/icon-quran.svg" width="140" height="140" alt="" loading="lazy" />
+              <h2 class="seal__label">القرآن</h2>
+            </li>
+            <li class="seal">
+              <img class="seal__art" src="illustrations/icon-people.svg" width="140" height="140" alt="" loading="lazy" />
+              <h2 class="seal__label">المعلّم</h2>
+            </li>
+            <li class="seal">
+              <img class="seal__art" src="illustrations/icon-growth.svg" width="140" height="140" alt="" loading="lazy" />
+              <h2 class="seal__label">النمو</h2>
+            </li>
+          </ul>
         </div>
       </section>
 
-      <section id="start" class="section section--start">
+      <section id="start" class="section section--start" data-atmosphere-scene="3">
         <div class="section__wrap">
-          <h2 class="section__title">كيف تبدأ؟</h2>
-          <ol class="path-steps">
+          <h2 class="section__title">ثلاث خطوات للبدء</h2>
+          <ol class="path-steps" data-reveal>
             <li class="path-steps__item">
-              <span class="path-steps__num" aria-hidden="true">1</span>
-              <div>
-                <h3>مسجد</h3>
-                <p>حمّل التطبيق ← سجّل المسجد ← انتظر الموافقة ← ادخل برمز «حالة الطلب» ← ادعُ المدرّسين.</p>
-              </div>
+              <span class="path-steps__num" aria-hidden="true">01</span>
+              <h3>أنشئ الحلقة</h3>
+              <p>سجّل مسجدك وابدأ الإدارة بعد الموافقة.</p>
             </li>
             <li class="path-steps__item">
-              <span class="path-steps__num" aria-hidden="true">2</span>
-              <div>
-                <h3>مدرّس</h3>
-                <p>خذ رمز الدعوة من مسؤول المسجد ← سجّل بالهاتف ← ابدأ «جلسة اليوم».</p>
-              </div>
+              <span class="path-steps__num" aria-hidden="true">02</span>
+              <h3>أضف الطلاب</h3>
+              <p>ادعُ المدرّسين وأدخل الطلاب برموز بسيطة.</p>
             </li>
             <li class="path-steps__item">
-              <span class="path-steps__num" aria-hidden="true">3</span>
-              <div>
-                <h3>طالب</h3>
-                <p>خذ اسم المستخدم والرمز من مدرّسك ← ادخل ← تابع الواجب والمصحف.</p>
-              </div>
+              <span class="path-steps__num" aria-hidden="true">03</span>
+              <h3>ابدأ</h3>
+              <p>حضور، واجب، وتقرير بعد كل جلسة.</p>
             </li>
           </ol>
         </div>
       </section>
 
-      <section id="faq" class="section section--faq">
+      <section id="faq" class="section section--faq" data-atmosphere-scene="3">
         <div class="section__wrap section__wrap--narrow">
-          <h2 class="section__title">أسئلة</h2>
+          <h2 class="section__title">الأسئلة الشائعة</h2>
           <div class="faq-list">
-            <details class="faq-item">
-              <summary>هل التطبيق مجاني؟</summary>
+            <details class="faq-item" name="faq">
+              <summary>هل المنصة مجانية؟</summary>
               <p>نعم. حمّل APK وابدأ تسجيل مسجدك.</p>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" name="faq">
               <summary>هل يعمل بدون إنترنت؟</summary>
               <p>نعم — يسجّل محليًا ثم يزامن عند الاتصال.</p>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" name="faq">
               <summary>هل يوجد تطبيق لـ iPhone؟</summary>
               <p>حاليًا أندرويد فقط. iOS قيد التخطيط.</p>
             </details>
-            <details class="faq-item">
+            <details class="faq-item" name="faq">
               <summary>هل أحتاج بريدًا؟</summary>
               <p>لا — الهاتف العراقي (+964) ورموز الدخول تكفي.</p>
             </details>
@@ -248,21 +233,34 @@
         </div>
       </section>
 
-      <section id="download" class="section section--download">
-        <div class="section__wrap section__wrap--narrow download-seal">
-          <img
-            class="download-seal__mark"
-            src="illustrations/geo-octagon.svg"
-            width="88"
-            height="88"
-            alt=""
-            loading="lazy"
-          />
-          <h2 class="section__title">جاهز لتجربة حافظ؟</h2>
-          <p class="section__lead">حمّل لأندرويد، ثم سجّل مسجدك من داخل التطبيق.</p>
-          <a class="btn btn--primary btn--lg" href="hafiz.apk?v=1.0.6" download="hafiz.apk">تحميل APK</a>
+      <section id="download" class="section section--download" data-atmosphere-scene="0">
+        <div class="download-bar">
+          <div class="download-bar__inner">
+            <img
+              class="download-bar__mark"
+              src="illustrations/geo-octagon.svg"
+              width="56"
+              height="56"
+              alt=""
+              loading="lazy"
+            />
+            <div class="download-bar__copy">
+              <h2 class="download-bar__title">ابدأ مع حافظ</h2>
+              <p>حمّل لأندرويد، ثم سجّل مسجدك من داخل التطبيق.</p>
+            </div>
+            <div class="download-bar__actions">
+              <a class="store-btn" href="hafiz.apk?v=1.0.6" download="hafiz.apk">
+                <span class="store-btn__eyebrow">متاح الآن</span>
+                <span class="store-btn__label">تحميل أندرويد</span>
+              </a>
+              <span class="store-btn store-btn--soon" aria-disabled="true">
+                <span class="store-btn__eyebrow">قريباً</span>
+                <span class="store-btn__label">App Store</span>
+              </span>
+            </div>
+          </div>
           <p class="download-meta">
-            الإصدار 1.0.6 · أندرويد 6.0 فأعلى · الدعم:
+            الإصدار 1.0.6 · أندرويد 6.0 فأعلى ·
             <a href="mailto:noreply@hafizapp.xyz">noreply@hafizapp.xyz</a>
           </p>
         </div>

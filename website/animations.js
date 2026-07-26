@@ -1,148 +1,129 @@
-/* Hafiz geometric parchment — header, octagon select, split, scroll progress */
+/* Hafiz editorial — scroll progress, atmosphere scenes, soft reveals */
 (() => {
   "use strict";
 
+  document.documentElement.classList.add("js");
+
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const initHeader = () => {
-    const header = document.querySelector("[data-header]");
-    const nav = document.getElementById("site-nav");
-    const toggle = document.querySelector("[data-nav-toggle]");
-
-    if (header) {
-      const onScroll = () => {
-        header.classList.toggle("is-scrolled", window.scrollY > 8);
-        const bar = document.querySelector(".scroll-progress");
-        if (bar) {
-          const max = document.documentElement.scrollHeight - window.innerHeight;
-          const p = max > 0 ? window.scrollY / max : 0;
-          bar.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`;
-        }
-      };
-      onScroll();
-      window.addEventListener("scroll", onScroll, { passive: true });
-    }
-
-    if (!nav || !toggle) return;
-    const close = () => {
-      nav.classList.remove("is-open");
-      toggle.setAttribute("aria-expanded", "false");
+  const initProgress = () => {
+    const bar = document.querySelector(".scroll-progress");
+    if (!bar) return;
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const p = max > 0 ? window.scrollY / max : 0;
+      bar.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`;
     };
-    toggle.addEventListener("click", () => {
-      const open = nav.classList.toggle("is-open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-    nav.querySelectorAll("a").forEach((a) => a.addEventListener("click", close));
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") close();
-    });
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
   };
 
-  const initStamps = () => {
-    const panels = document.querySelectorAll(".octagon-panel, .stamp--panel");
-    panels.forEach((panel) => {
-      const activate = () => {
-        panels.forEach((p) => {
-          p.classList.remove("is-active");
-          p.classList.remove("is-inked");
-        });
-        panel.classList.add("is-active");
-        panel.classList.add("is-inked");
-      };
-      panel.addEventListener("click", activate);
-      panel.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          activate();
+  const initAtmosphere = () => {
+    const root = document.querySelector("[data-atmosphere]");
+    if (!root) return;
+
+    const scenes = [...root.querySelectorAll(".page-atmosphere__img")];
+    if (!scenes.length) return;
+
+    const sections = [...document.querySelectorAll("[data-atmosphere-scene]")];
+    let active = -1;
+
+    const setScene = (index) => {
+      const next = Math.max(0, Math.min(scenes.length - 1, Number(index) || 0));
+      if (next === active) return;
+      active = next;
+      scenes.forEach((img, i) => {
+        img.classList.toggle("is-active", i === active);
+      });
+    };
+
+    const pickScene = () => {
+      if (!sections.length) {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        const p = max > 0 ? window.scrollY / max : 0;
+        setScene(Math.round(p * (scenes.length - 1)));
+        return;
+      }
+
+      const focusY = window.innerHeight * 0.32;
+      let bestSection = sections[0];
+      let bestScore = Infinity;
+
+      sections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        // Prefer the section whose vertical span covers the focus line
+        if (rect.top <= focusY && rect.bottom >= focusY) {
+          bestSection = section;
+          bestScore = -1;
+          return;
+        }
+        if (bestScore < 0) return;
+        const dist = Math.min(Math.abs(rect.top - focusY), Math.abs(rect.bottom - focusY));
+        if (dist < bestScore) {
+          bestScore = dist;
+          bestSection = section;
         }
       });
-    });
+
+      setScene(bestSection.getAttribute("data-atmosphere-scene"));
+    };
+
+    if (reduce) {
+      setScene(0);
+      return;
+    }
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        pickScene();
+        ticking = false;
+      });
+    };
+
+    setScene(0);
+    pickScene();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
   };
 
-  const initSplit = () => {
-    const split = document.querySelector("[data-split]");
-    const handle = document.querySelector("[data-split-handle]");
-    if (!split || !handle) return;
+  const initReveals = () => {
+    const nodes = [...document.querySelectorAll("[data-reveal]")];
+    if (!nodes.length) return;
 
-    // Desktop: visual emphasis only (equal panes). Mobile stacks via CSS.
-    // Drag rebalances flex feel via class — keep both panes fully readable.
-    let dragging = false;
-    const onDown = () => {
-      dragging = true;
-      handle.setAttribute("aria-pressed", "true");
-    };
-    const onUp = () => {
-      dragging = false;
-      handle.setAttribute("aria-pressed", "false");
-    };
-    handle.addEventListener("pointerdown", (e) => {
-      handle.setPointerCapture(e.pointerId);
-      onDown();
-    });
-    handle.addEventListener("pointerup", onUp);
-    handle.addEventListener("pointercancel", onUp);
-    handle.addEventListener("pointermove", (e) => {
-      if (!dragging || window.matchMedia("(max-width: 720px)").matches) return;
-      const rect = split.getBoundingClientRect();
-      if (!rect.width) return;
-      // RTL: pointer from right
-      const fromStart = (rect.right - e.clientX) / rect.width;
-      const clamped = Math.min(0.72, Math.max(0.28, fromStart));
-      const before = split.querySelector(".split__pane--before");
-      const after = split.querySelector(".split__pane--after");
-      if (before && after) {
-        before.style.flex = String(clamped);
-        after.style.flex = String(1 - clamped);
-        split.style.display = "flex";
-        handle.style.flex = "0 0 1.1rem";
-        before.style.minWidth = "0";
-        after.style.minWidth = "0";
-      }
-    });
-  };
+    const reveal = (n) => n.classList.add("is-in");
 
-  const initReveal = () => {
-    if (reduce || !("IntersectionObserver" in window)) return;
-    document.documentElement.dataset.revealReady = "";
-    const nodes = document.querySelectorAll(
-      ".section__title, .section__lead, .octagon-panel, .stamp--panel, .path-steps__item, .path-rail__item, .faq-item, .split"
-    );
+    if (reduce || !("IntersectionObserver" in window)) {
+      nodes.forEach(reveal);
+      return;
+    }
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
-          const el = entry.target;
-          el.style.transition = "opacity 0.55s var(--ease, ease), transform 0.55s var(--ease, ease)";
-          el.style.opacity = "1";
-          el.style.transform = "none";
-          io.unobserve(el);
+          reveal(entry.target);
+          io.unobserve(entry.target);
         });
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      { rootMargin: "0px 0px -4% 0px", threshold: 0.08 }
     );
-    nodes.forEach((n, i) => {
-      n.style.transitionDelay = `${Math.min(i % 4, 3) * 0.06}s`;
+
+    nodes.forEach((n) => {
+      const rect = n.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.96 && rect.bottom > 0) {
+        reveal(n);
+        return;
+      }
       io.observe(n);
     });
-    // Safety: never leave content invisible
-    window.setTimeout(() => {
-      nodes.forEach((n) => {
-        n.style.opacity = "1";
-        n.style.transform = "none";
-      });
-    }, 2800);
+
+    window.setTimeout(() => nodes.forEach(reveal), 1800);
   };
 
-  const boot = () => {
-    initHeader();
-    initStamps();
-    initSplit();
-    initReveal();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  initProgress();
+  initAtmosphere();
+  initReveals();
 })();
