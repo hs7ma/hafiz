@@ -312,6 +312,196 @@ main,
   margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
 }
 
+.section__header {
+  text-align: center;
+  margin-bottom: clamp(2.5rem, 5vw, 3.25rem);
+}
+
+.section__header .section__title {
+  margin-bottom: 0.85rem;
+}
+
+.section__lead {
+  margin: 0 auto;
+  max-width: 36rem;
+  font-size: clamp(1.02rem, 1.8vw, 1.12rem);
+  font-weight: 600;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--teal) 78%, var(--mute));
+}
+
+/* —— Journey hub: Hafiz as connection center —— */
+.hub {
+  margin: 0 auto clamp(2.75rem, 5vw, 3.75rem);
+  max-width: 24rem;
+}
+
+.hub__frame {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 1.85rem;
+}
+
+.hub__art {
+  width: 100%;
+  height: auto;
+}
+
+.hub__core {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  font-size: clamp(1.15rem, 3.2vw, 1.35rem);
+  font-weight: 800;
+  color: var(--teal);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.hub__node {
+  position: absolute;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hub__node--mosque {
+  top: 0.05rem;
+  left: 50%;
+  translate: -50% 0;
+}
+
+.hub__node--student {
+  bottom: 0.05rem;
+  left: 50%;
+  translate: -50% 0;
+}
+
+.hub__node--teacher {
+  top: 50%;
+  right: 0.05rem;
+  translate: 0 -50%;
+}
+
+.hub__node--parent {
+  top: 50%;
+  left: 0.05rem;
+  translate: 0 -50%;
+}
+
+/* —— Journey loop: vertical sequence, not feature grid —— */
+.journey {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  max-width: 34rem;
+  margin-inline: auto;
+  border-block: var(--hairline);
+}
+
+.journey__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.15rem 1.35rem;
+  align-items: start;
+  padding: 1.35rem 0.15rem;
+  border-bottom: var(--hairline);
+}
+
+.journey__item:last-child {
+  border-bottom: 0;
+}
+
+.journey__num {
+  font-size: clamp(1.65rem, 3.5vw, 2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  min-width: 2.4ch;
+}
+
+.journey__copy h3 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.journey__copy p {
+  margin: 0;
+  font-size: 0.96rem;
+  color: var(--mute);
+  line-height: 1.65;
+}
+
+.journey__close {
+  margin: clamp(2rem, 4vw, 2.75rem) auto 0;
+  max-width: 34rem;
+  text-align: center;
+  font-size: clamp(1.02rem, 1.8vw, 1.12rem);
+  font-weight: 700;
+  line-height: 1.75;
+  color: var(--teal);
+  padding-block: 0.25rem;
+}
+
+/* —— Audience strip: four roles, hairlines only —— */
+.audience {
+  margin-top: clamp(3rem, 6vw, 4rem);
+  border-block: var(--hairline);
+  padding-block: clamp(2rem, 4vw, 2.75rem);
+}
+
+.audience__title {
+  margin: 0 0 1.75rem;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.audience__row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  text-align: center;
+}
+
+.audience__item {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: center;
+  padding: 0.35rem 1rem;
+  border-inline-start: var(--hairline);
+}
+
+.audience__item:first-child {
+  border-inline-start: 0;
+}
+
+.audience__item strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.audience__item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--mute);
+  max-width: 16ch;
+  line-height: 1.6;
+}
+
 /* —— Compare: open field + hairline, no card —— */
 .compare {
   display: grid;
@@ -678,6 +868,20 @@ html.js [data-reveal].is-in {
     row-gap: 2.5rem;
   }
 
+  .audience__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 1.75rem;
+  }
+
+  .audience__item {
+    border-inline-start: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .audience__item:nth-child(odd) {
+    border-inline-end: var(--hairline);
+  }
+
   .path-steps {
     grid-template-columns: 1fr;
   }
@@ -706,6 +910,18 @@ html.js [data-reveal].is-in {
 @media (max-width: 720px) {
   :root {
     --atmosphere-opacity: 0.14;
+  }
+
+  .hub {
+    max-width: 18.5rem;
+  }
+
+  .hub__frame {
+    padding: 1.5rem;
+  }
+
+  .hub__node {
+    font-size: 0.82rem;
   }
 
   .hero {

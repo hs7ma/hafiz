@@ -4,14 +4,15 @@
     <!--
       THESIS: Editorial brand landing — Hafiz as quiet luxury over translucent mosque architecture.
       OWN-WORLD: Parchment #FBF9F2, teal #032C27, gold #AF8644; Alexandria; hairlines; octagon seals; no SaaS cards.
-      STORY: Brand → without/with → seals → steps → FAQ → download.
+      STORY: Brand → without/with → journey (hub + loop) → seals → steps → FAQ → download.
+      MESSAGE: كل ما تحتاجه الحلقة في مكان واحد.
       FIRST VIEWPORT: Oversized mark + short promise + two lines + dual pill CTAs only.
     -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="حافظ — منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
+      content="حافظ — كل ما تحتاجه الحلقة في مكان واحد. منصة عربية لإدارة حلقات التحفيظ داخل المساجد."
     />
     <title>حافظ — حلقات القرآن كما ينبغي أن تكون</title>
     <link rel="canonical" href="https://hafizapp.xyz/" />
@@ -25,7 +26,7 @@
     <meta property="og:title" content="حافظ — حلقات القرآن كما ينبغي أن تكون" />
     <meta
       property="og:description"
-      content="منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
+      content="كل ما تحتاجه الحلقة في مكان واحد — منصة عربية لإدارة حلقات التحفيظ داخل المساجد."
     />
     <meta property="og:image" content="https://hafizapp.xyz/og-image.png" />
     <meta property="og:image:width" content="1200" />
@@ -34,7 +35,7 @@
     <meta name="twitter:title" content="حافظ — حلقات القرآن كما ينبغي أن تكون" />
     <meta
       name="twitter:description"
-      content="منصة عربية لإدارة حلقات التحفيظ داخل المساجد بكل سهولة."
+      content="كل ما تحتاجه الحلقة في مكان واحد — منصة عربية لإدارة حلقات التحفيظ داخل المساجد."
     />
     <meta name="twitter:image" content="https://hafizapp.xyz/og-image.png" />
     <link rel="icon" href="favicon.svg?v=20260726s" type="image/svg+xml" />
@@ -53,8 +54,8 @@
       fetchpriority="high"
       type="image/webp"
     />
-    <link rel="stylesheet" href="styles.css?v=20260726s" />
-    <script defer src="animations.js?v=20260726s"></script>
+    <link rel="stylesheet" href="styles.css?v=20260727j" />
+    <script defer src="animations.js?v=20260727j"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">تخطّي إلى المحتوى</a>
@@ -109,6 +110,7 @@
 
     <nav class="micro-nav" aria-label="روابط سريعة">
       <a href="#proof">المقارنة</a>
+      <a href="#journey">الرحلة</a>
       <a href="#meanings">المعاني</a>
       <a href="#start">البدء</a>
       <a href="#download">تحميل</a>
@@ -124,12 +126,12 @@
           كما ينبغي أن تكون.
         </h1>
         <p class="hero__lead">
-          منصة عربية لإدارة حلقات التحفيظ<br />
-          داخل المساجد بكل سهولة.
+          كل ما تحتاجه الحلقة في مكان واحد.<br />
+          منصة عربية لإدارة التحفيظ داخل المساجد.
         </p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="#download">سجّل حلقتك</a>
-          <a class="btn btn--ghost" href="#proof">اطّلع على المنصة</a>
+          <a class="btn btn--ghost" href="#journey">اطّلع على المنصة</a>
         </div>
       </div>
     </section>
@@ -153,12 +155,112 @@
             <div class="compare__pane compare__pane--after">
               <h2 class="compare__title">مع حافظ</h2>
               <ul class="compare__list">
-                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>سجلات منظّمة لكل حلقة</li>
+                <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>كل ما تحتاجه الحلقة في مكان واحد</li>
                 <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>تواصل واضح داخل المسجد</li>
                 <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>تقرير واتساب جاهز</li>
                 <li><span class="compare__mark compare__mark--ok" aria-hidden="true">✓</span>متابعة مستوى الحفظ</li>
               </ul>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="journey" class="section section--journey" data-atmosphere-scene="1">
+        <div class="section__wrap">
+          <header class="section__header" data-reveal>
+            <h2 class="section__title">هكذا تُدار الحلقة مع حافظ</h2>
+            <p class="section__lead">
+              من دخول الطالب إلى خروجه… كل ما يحدث في الحلقة يُدار من مكان واحد.
+            </p>
+          </header>
+
+          <figure class="hub" data-reveal aria-label="حافظ يربط المسجد والمدرّس والطالب وولي الأمر">
+            <div class="hub__frame">
+              <img
+                class="hub__art"
+                src="illustrations/hub-network.svg"
+                width="400"
+                height="400"
+                alt=""
+                loading="lazy"
+              />
+              <span class="hub__core">حافظ</span>
+              <span class="hub__node hub__node--mosque">المسجد</span>
+              <span class="hub__node hub__node--teacher">المدرّس</span>
+              <span class="hub__node hub__node--student">الطالب</span>
+              <span class="hub__node hub__node--parent">ولي الأمر</span>
+            </div>
+          </figure>
+
+          <ol class="journey" data-reveal>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">01</span>
+              <div class="journey__copy">
+                <h3>تبدأ الحلقة</h3>
+                <p>ينشئ المسجد الحلقة ويحدد المدرّس.</p>
+              </div>
+            </li>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">02</span>
+              <div class="journey__copy">
+                <h3>يدير المدرّس الجلسة</h3>
+                <p>حضور، حفظ، مراجعة، وواجب.</p>
+              </div>
+            </li>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">03</span>
+              <div class="journey__copy">
+                <h3>يتابع الطالب</h3>
+                <p>يعرف واجبه وتقدمه.</p>
+              </div>
+            </li>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">04</span>
+              <div class="journey__copy">
+                <h3>يطمئن ولي الأمر</h3>
+                <p>يستلم التقرير.</p>
+              </div>
+            </li>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">05</span>
+              <div class="journey__copy">
+                <h3>يدير المسجد الحلقات</h3>
+                <p>يتابع التقارير ويشرف على الحلقات.</p>
+              </div>
+            </li>
+            <li class="journey__item">
+              <span class="journey__num" aria-hidden="true">06</span>
+              <div class="journey__copy">
+                <h3>كل شيء محفوظ</h3>
+                <p>حتى بدون إنترنت.</p>
+              </div>
+            </li>
+          </ol>
+
+          <p class="journey__close" data-reveal>
+            وهكذا تُدار الحلقة كاملة من مكان واحد، دون أوراق متفرقة أو مجموعات واتساب متعددة.
+          </p>
+
+          <div class="audience" data-reveal>
+            <h3 class="audience__title">يخدم الجميع</h3>
+            <ul class="audience__row">
+              <li class="audience__item">
+                <strong>المسجد</strong>
+                <p>إدارة الحلقات والمدرّسين.</p>
+              </li>
+              <li class="audience__item">
+                <strong>المدرّس</strong>
+                <p>كل ما يحتاجه لإدارة الجلسة.</p>
+              </li>
+              <li class="audience__item">
+                <strong>الطالب</strong>
+                <p>متابعة الواجب والحفظ.</p>
+              </li>
+              <li class="audience__item">
+                <strong>ولي الأمر</strong>
+                <p>تقارير مختصرة بعد كل جلسة.</p>
+              </li>
+            </ul>
           </div>
         </div>
       </section>
@@ -246,7 +348,7 @@
             />
             <div class="download-bar__copy">
               <h2 class="download-bar__title">ابدأ مع حافظ</h2>
-              <p>حمّل لأندرويد، ثم سجّل مسجدك من داخل التطبيق.</p>
+              <p>كل ما تحتاجه الحلقة في مكان واحد. حمّل لأندرويد، ثم سجّل مسجدك من داخل التطبيق.</p>
             </div>
             <div class="download-bar__actions">
               <a class="store-btn" href="hafiz.apk?v=1.0.7" download="hafiz.apk">
