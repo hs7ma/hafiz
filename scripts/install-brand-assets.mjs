@@ -1,5 +1,5 @@
 /**
- * Install LOGO.svg (wordmark/brand) and ICON.svg (app icon / hero / thumbnails).
+ * Install LOGO.svg (brand mark on site + app) and ICON.svg (launcher/favicons/OG only).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -83,15 +83,15 @@ write('website/logo-on-dark.svg', logoDark);
 write('assets/svg/logo.svg', logo);
 write('assets/brand/logo.svg', logo);
 
-// Icon for hero / mark / favicon
+// ICON asset kept for reference; page brand uses logo.svg
 write('website/icon.svg', icon);
-write('website/logo-mark.svg', icon);
+write('website/logo-mark.svg', logo);
 write('website/favicon.svg', squareWrap(icon, { size: 128, background: null, pad: 0.06 }));
 
-// Brand / launcher PNGs from ICON
-renderPng(squareWrap(icon, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/hafiz_logo_source.png', 1024);
-renderPng(squareWrap(icon, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/logo_transparent.png', 1024);
-renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'assets/brand/logo_source.png', 1024);
+// Transparent brand PNG from LOGO; launcher PNGs from ICON
+renderPng(squareWrap(logo, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/hafiz_logo_source.png', 1024);
+renderPng(squareWrap(logo, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/logo_transparent.png', 1024);
+renderPng(squareWrap(logo, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'assets/brand/logo_source.png', 1024);
 renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'assets/brand/ic_launcher.png', 1024);
 renderPng(squareWrap(icon, { size: 1024, background: null, pad: 0.1 }), 'assets/brand/ic_launcher_foreground.png', 1024);
 renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'platform_app/assets/brand/ic_launcher.png', 1024);
