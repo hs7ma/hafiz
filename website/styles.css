@@ -260,9 +260,9 @@ main,
 }
 
 .hero__brand img {
-  width: clamp(11.5rem, 28vw, 15.5rem); /* square mark */
+  width: clamp(9.5rem, 24vw, 13.5rem); /* ICON 621×726 */
   height: auto;
-  aspect-ratio: 1;
+  aspect-ratio: 621 / 726;
   object-fit: contain;
   filter: drop-shadow(0 18px 40px color-mix(in srgb, var(--teal) 10%, transparent));
 }
@@ -965,7 +965,7 @@ html.js [data-reveal].is-in {
   }
 
   .hero__brand img {
-    width: clamp(9.5rem, 42vw, 12rem);
+    width: clamp(8rem, 36vw, 10.5rem);
   }
 
   .hero__title {
