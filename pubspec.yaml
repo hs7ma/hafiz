@@ -1,7 +1,7 @@
 name: hafiz
 description: تطبيق حافظ — تنظيم حضور وحفظ القرآن في حلقات المساجد
 publish_to: 'none'
-version: 1.0.8+9
+version: 1.0.9+10
 
 environment:
   sdk: ^3.8.1
@@ -50,7 +50,7 @@ flutter_launcher_icons:
   image_path: assets/brand/ic_launcher.png
   adaptive_icon_background: "#FBF9F2"
   adaptive_icon_foreground: assets/brand/ic_launcher_foreground.png
-  adaptive_icon_foreground_inset: 8
+  adaptive_icon_foreground_inset: 16
 
 flutter:
   uses-material-design: true

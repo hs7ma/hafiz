@@ -34,7 +34,7 @@ function darkenLogo(svg) {
     .replaceAll('fill="#005434"', 'fill="#4a7a62"');
 }
 
-function squareWrap(innerSvg, { size, background = null, pad = 0.1 } = {}) {
+function squareWrap(innerSvg, { size, background = null, pad = 0.1, nudgeY = 0 } = {}) {
   const vb = innerSvg.match(/viewBox="([^"]+)"/)?.[1] ?? '0 0 1024 1024';
   const parts = vb.split(/\s+/).map(Number);
   const [minX, minY, vw, vh] = parts.length === 4 ? parts : [0, 0, parts[0], parts[1]];
@@ -48,7 +48,8 @@ function squareWrap(innerSvg, { size, background = null, pad = 0.1 } = {}) {
   const w = vw * scale;
   const h = vh * scale;
   const x = (size - w) / 2 - minX * scale;
-  const y = (size - h) / 2 - minY * scale;
+  // nudgeY > 0 shifts mark down (optical balance for top-heavy mihrab)
+  const y = (size - h) / 2 - minY * scale + size * nudgeY;
   const bg =
     background && background !== 'none'
       ? `<rect width="${size}" height="${size}" fill="${background}"/>`
@@ -86,36 +87,38 @@ write('assets/brand/logo.svg', logo);
 // ICON asset kept for reference; page brand uses logo.svg
 write('website/icon.svg', icon);
 write('website/logo-mark.svg', logo);
-write('website/favicon.svg', squareWrap(icon, { size: 128, background: null, pad: 0.06 }));
+// Safe margin so tab/maskable crops don't clip the outer arch
+write('website/favicon.svg', squareWrap(icon, { size: 128, background: '#FBF9F2', pad: 0.16, nudgeY: 0.02 }));
 
-// Transparent brand PNG from LOGO; launcher PNGs from ICON
+// Transparent brand PNG from LOGO; launcher PNGs from ICON (generous safe zone)
 renderPng(squareWrap(logo, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/hafiz_logo_source.png', 1024);
 renderPng(squareWrap(logo, { size: 1024, background: null, pad: 0.04 }), 'assets/brand/logo_transparent.png', 1024);
 renderPng(squareWrap(logo, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'assets/brand/logo_source.png', 1024);
-renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'assets/brand/ic_launcher.png', 1024);
-renderPng(squareWrap(icon, { size: 1024, background: null, pad: 0.1 }), 'assets/brand/ic_launcher_foreground.png', 1024);
-renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.06 }), 'platform_app/assets/brand/ic_launcher.png', 1024);
+// ~20% pad keeps mark inside Android adaptive / launcher masks; nudgeY balances top-heavy arch
+renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.2, nudgeY: 0.02 }), 'assets/brand/ic_launcher.png', 1024);
+renderPng(squareWrap(icon, { size: 1024, background: null, pad: 0.22, nudgeY: 0.02 }), 'assets/brand/ic_launcher_foreground.png', 1024);
+renderPng(squareWrap(icon, { size: 1024, background: '#FBF9F2', pad: 0.2, nudgeY: 0.02 }), 'platform_app/assets/brand/ic_launcher.png', 1024);
 renderPng(
-  squareWrap(icon, { size: 1024, background: null, pad: 0.1 }),
+  squareWrap(icon, { size: 1024, background: null, pad: 0.22, nudgeY: 0.02 }),
   'platform_app/assets/brand/ic_launcher_foreground.png',
   1024,
 );
 
 for (const [rel, size, pad] of [
-  ['web/favicon.png', 192, 0.1],
-  ['web/icons/Icon-192.png', 192, 0.1],
-  ['web/icons/Icon-512.png', 512, 0.1],
-  ['web/icons/Icon-maskable-192.png', 192, 0.18],
-  ['web/icons/Icon-maskable-512.png', 512, 0.18],
-  ['platform_app/web/favicon.png', 192, 0.1],
-  ['platform_app/web/icons/Icon-192.png', 192, 0.1],
-  ['platform_app/web/icons/Icon-512.png', 512, 0.1],
-  ['platform_app/web/icons/Icon-maskable-192.png', 192, 0.18],
-  ['platform_app/web/icons/Icon-maskable-512.png', 512, 0.18],
-  ['website/apple-touch-icon.png', 180, 0.1],
-  ['website/favicon-32.png', 32, 0.08],
+  ['web/favicon.png', 192, 0.16],
+  ['web/icons/Icon-192.png', 192, 0.16],
+  ['web/icons/Icon-512.png', 512, 0.16],
+  ['web/icons/Icon-maskable-192.png', 192, 0.22],
+  ['web/icons/Icon-maskable-512.png', 512, 0.22],
+  ['platform_app/web/favicon.png', 192, 0.16],
+  ['platform_app/web/icons/Icon-192.png', 192, 0.16],
+  ['platform_app/web/icons/Icon-512.png', 512, 0.16],
+  ['platform_app/web/icons/Icon-maskable-192.png', 192, 0.22],
+  ['platform_app/web/icons/Icon-maskable-512.png', 512, 0.22],
+  ['website/apple-touch-icon.png', 180, 0.16],
+  ['website/favicon-32.png', 32, 0.14],
 ]) {
-  renderPng(squareWrap(icon, { size, background: '#FBF9F2', pad }), rel, size);
+  renderPng(squareWrap(icon, { size, background: '#FBF9F2', pad, nudgeY: 0.02 }), rel, size);
 }
 
 // OG: ivory canvas, ICON centered (621×726)
