@@ -260,8 +260,10 @@ main,
 }
 
 .hero__brand img {
-  width: clamp(20rem, 42vw, 23.75rem); /* 320–380px */
+  width: clamp(11.5rem, 28vw, 15.5rem); /* square mark */
   height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
   filter: drop-shadow(0 18px 40px color-mix(in srgb, var(--teal) 10%, transparent));
 }
 
@@ -963,7 +965,7 @@ html.js [data-reveal].is-in {
   }
 
   .hero__brand img {
-    width: clamp(16.5rem, 72vw, 20rem);
+    width: clamp(9.5rem, 42vw, 12rem);
   }
 
   .hero__title {
