@@ -260,9 +260,9 @@ main,
 }
 
 .hero__brand img {
-  width: clamp(14rem, 38vw, 22rem); /* tight cropped wordmark */
+  width: clamp(14rem, 38vw, 22rem); /* LOGO1 tight wordmark ~744×366 */
   height: auto;
-  aspect-ratio: 805 / 397;
+  aspect-ratio: 744 / 366;
   object-fit: contain;
   filter: drop-shadow(0 18px 40px color-mix(in srgb, var(--teal) 10%, transparent));
 }

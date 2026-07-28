@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const logoSrc = path.join(root, 'LOGO.svg');
+const logoSrc = path.join(root, 'LOGO1.svg');
 const iconSrc = path.join(root, 'ICON.svg');
 
 function write(rel, content) {
